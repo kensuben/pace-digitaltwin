@@ -1,0 +1,46 @@
+name: pace-digitaltwin-local
+
+services:
+  postgres:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_DB: pace_digital_twin
+      POSTGRES_USER: pace
+      POSTGRES_PASSWORD: pace_dev_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pace -d pace_digital_twin"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      target: runner
+    environment:
+      DATABASE_URL: postgresql://pace:pace_dev_password@postgres:5432/pace_digital_twin?schema=public
+      APP_ENV: local
+      DEMO_MODE: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  migrate:
+    profiles: ["tools"]
+    build:
+      context: .
+      target: migrator
+    environment:
+      DATABASE_URL: postgresql://pace:pace_dev_password@postgres:5432/pace_digital_twin?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

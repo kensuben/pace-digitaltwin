@@ -1,0 +1,16 @@
+.git
+.github
+.next
+node_modules
+coverage
+playwright-report
+test-results
+.env
+.env.*
+*.md
+compose*.yaml
+deploy
+documents
+playwright.config.ts
+tests
+vitest.config.ts

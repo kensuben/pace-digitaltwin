@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_DB: pace_digital_twin_test
+          POSTGRES_USER: pace
+          POSTGRES_PASSWORD: pace_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pace -d pace_digital_twin_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://pace:pace_test_password@localhost:5432/pace_digital_twin_test?schema=public
+      DEMO_MODE: "true"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate and generate Prisma Client
+        run: |
+          npx prisma validate
+          npm run db:generate
+
+      - name: Apply migrations to a clean database
+        run: npm run db:deploy
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests with coverage
+        run: npm run test:coverage
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Foundation E2E smoke tests
+        run: npm run test:e2e
+
+      - name: Build application container without publishing
+        run: docker build --target runner --tag pace-digitaltwin:${{ github.sha }} .
+
+      - name: Build migration container without publishing
+        run: docker build --target migrator --tag pace-digitaltwin:${{ github.sha }}-migrator .
