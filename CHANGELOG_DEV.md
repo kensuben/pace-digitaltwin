@@ -1,5 +1,24 @@
 # Development Changelog
 
+## 2026-08-11 — Phase SP-0 Spatial schema & storage
+
+### Added
+
+- Prisma models cho drawing/revision/page, floor map, coordinate/calibration, placement, local geometry, import job, 3D model mapping, cable route và riser.
+- Composite foreign keys enforce cùng campus/building, document/revision, floor/coordinate system và device/scenario/floor.
+- PostgreSQL CHECK constraints cùng partial unique indexes bảo đảm active shared/scenario floor map không trùng.
+- `ObjectStorage` port và filesystem adapter development/CI: immutable generated key, traversal protection, streaming write/read, byte limit, SHA-256 verification và idempotent delete.
+- DrawingDocument metadata CRUD qua Route -> Service -> Repository; document có revision/derived asset không bị xóa trực tiếp.
+- Pure affine coordinate/calibration functions, Zod spatial DTOs và unit/E2E tests.
+- Seed idempotent tạo canonical coordinate system và blank manual floor map cho B2/B1/T1-T11, không giả định elevation hoặc dimensions.
+
+### Decisions and limitations
+
+- SP-0 không có PDF/GLB upload endpoint, rendering, worker hoặc UI; các phần này bắt đầu từ SP-1/SP-2.
+- Filesystem storage bị chặn trong production; S3-compatible provider vẫn cần quyết định và triển khai trước production upload.
+- `CableRoute.physicalLinkId` luôn null bằng DB CHECK cho đến khi M2 tạo PhysicalLink và bổ sung composite FK cùng scenario.
+- `uploadedBy` hiện là DTO field vì authentication/RBAC chưa có; phải lấy từ authenticated principal khi security phase được triển khai.
+
 ## 2026-08-11 — Milestone M1 Inventory & Catalog
 
 ### Added

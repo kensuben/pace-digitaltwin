@@ -68,3 +68,30 @@ test("creates generated ports and enforces scenario isolation", async ({
   );
   expect(deleted.ok()).toBe(true);
 });
+
+test("creates, updates and deletes SP-0 drawing metadata", async ({
+  request,
+}) => {
+  const created = await request.post("/api/drawings", {
+    data: {
+      campusId: "campus-pace-181",
+      buildingId: "building-vp181",
+      name: `E2E floor plan ${Date.now()}`,
+      documentType: "FLOOR_PLAN",
+      uploadedBy: "e2e",
+    },
+  });
+  expect(created.status()).toBe(201);
+  const body = (await created.json()) as {
+    data: { id: string; status: string };
+  };
+  expect(body.data.status).toBe("UPLOADING");
+
+  const updated = await request.patch(`/api/drawings/${body.data.id}`, {
+    data: { name: "E2E updated floor plan" },
+  });
+  expect(updated.ok()).toBe(true);
+
+  const deleted = await request.delete(`/api/drawings/${body.data.id}`);
+  expect(deleted.ok()).toBe(true);
+});

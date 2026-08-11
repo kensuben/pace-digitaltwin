@@ -7,8 +7,8 @@ This roadmap resolves the dependency order between SOP-SC181-001 network phases 
 | 0 | M0 Foundation | Done | Web, DB scaffold, tests, app image and CI pass |
 | 1 | M0.1 Architecture alignment | Done | ADR-0002/3/4, integrated ERD, shadcn foundation and migrator gate pass |
 | 2 | M1 Inventory & Catalog | Done | Two reviewed migrations, seed evidence, Inventory/Catalog/Device Detail pass |
-| 3 | SP-0 Spatial schema & storage | Ready | Spatial migration and filesystem ObjectStorage adapter pass |
-| 4 | M2 Network topology | Pending | Port-first links and persisted editor pass |
+| 3 | SP-0 Spatial schema & storage | Done | Spatial migration and filesystem ObjectStorage adapter pass |
+| 4 | M2 Network topology | Ready | Port-first links and persisted editor pass |
 | 5 | SP-1 PDF ingestion | Pending | Isolated worker, previews, jobs and floor mapping pass |
 | 6 | M3 LAG/VLAN/IP | Pending | Network logical configuration and validation pass |
 | 7 | SP-2 2D floor editor | Pending | Calibration and placement persistence in meters pass |

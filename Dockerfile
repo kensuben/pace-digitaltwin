@@ -40,7 +40,9 @@ ENV NODE_ENV=production \
     PORT=3000
 
 RUN groupadd --system --gid 1001 nodejs \
-    && useradd --system --uid 1001 --gid nodejs nextjs
+    && useradd --system --uid 1001 --gid nodejs nextjs \
+    && mkdir -p /var/lib/pace-digitaltwin/objects \
+    && chown nextjs:nodejs /var/lib/pace-digitaltwin/objects
 
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

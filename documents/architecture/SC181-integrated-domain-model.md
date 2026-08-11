@@ -1,6 +1,6 @@
 # SC181 integrated domain model
 
-**Status:** M1 contract implemented by `20260811063350_m1_inventory_catalog` and `20260811064000_m1_location_invariants`
+**Status:** M1 and SP-0 contracts implemented; spatial foundation migration is `20260811163000_sp0_spatial_foundation`
 **Sources:** SOP-SC181-001 and SOP-SC181-002
 
 ## Domain ownership map
@@ -51,12 +51,12 @@ M1 creates only the shared hierarchy/catalog and core scenario inventory require
 
 No PDF, placement, cable-route or 3D tables are introduced in M1. Their foreign-key contracts are reserved by ADR-0002/0003 and implemented in SP-0.
 
-## Cross-domain invariants reserved for SP-0
+## Cross-domain invariants implemented in SP-0
 
 - Placement `(deviceInstanceId, scenarioId)` must reference DeviceInstance with the same scenario.
 - Placement floor must match DeviceInstance floor.
 - Scenario-specific FloorMap and BuildingModel3D overrides never duplicate source binary objects.
-- CableRoute and optional PhysicalLink share a scenario.
+- CableRoute is scenario-owned; `physicalLinkId` is constrained to null until M2 can add its composite PhysicalLink foreign key.
 - Canonical placement survives FloorMap revision and drawing deletion.
 - RackPlacement locates a Rack; DeviceInstance remains authoritative for rack/U assignment.
 

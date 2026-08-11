@@ -7,6 +7,8 @@ import {
 import {
   DeviceCategory,
   DeviceStatus,
+  DrawingDocumentType,
+  FloorMapSourceType,
   PrismaClient,
   ScenarioType,
   SpecStatus,
@@ -443,6 +445,7 @@ async function seedLocations() {
     })),
   ];
   let b2Id = "";
+  const storedFloors: Array<{ id: string; code: string; name: string }> = [];
 
   for (const floor of floorDefinitions) {
     const stored = await prisma.floor.upsert({
@@ -454,7 +457,37 @@ async function seedLocations() {
       },
       update: { level: floor.level, name: floor.name },
     });
+    storedFloors.push({ id: stored.id, code: stored.code, name: stored.name });
     if (floor.code === "B2") b2Id = stored.id;
+  }
+
+  for (const floor of storedFloors) {
+    const coordinateSystem = await prisma.spatialCoordinateSystem.upsert({
+      where: { id: `coordinates-${floor.id}` },
+      create: {
+        id: `coordinates-${floor.id}`,
+        floorId: floor.id,
+        name: "Canonical floor coordinates",
+      },
+      update: { name: "Canonical floor coordinates" },
+    });
+    await prisma.floorMap.upsert({
+      where: { id: `floor-map-${floor.id}` },
+      create: {
+        id: `floor-map-${floor.id}`,
+        floorId: floor.id,
+        name: `${floor.code} blank floor map`,
+        purpose: DrawingDocumentType.FLOOR_PLAN,
+        sourceType: FloorMapSourceType.MANUAL,
+        isActive: true,
+        coordinateSystemId: coordinateSystem.id,
+      },
+      update: {
+        name: `${floor.code} blank floor map`,
+        isActive: true,
+        coordinateSystemId: coordinateSystem.id,
+      },
+    });
   }
 
   const zone = await prisma.zone.upsert({
@@ -593,7 +626,7 @@ async function main() {
   const location = await seedLocations();
   await seedScenariosAndDevices(location, catalog);
   console.log(
-    "Seeded M1 campus, catalog, scenarios, inventory and generated ports.",
+    "Seeded M1 inventory and SP-0 canonical coordinates with blank floor maps.",
   );
 }
 

@@ -90,45 +90,222 @@ enum PortOperationalStatus {
   UNKNOWN
 }
 
+enum DrawingDocumentType {
+  FLOOR_PLAN
+  ELV
+  NETWORK
+  CCTV
+  WIFI
+  FIRE_ALARM
+  ACCESS_CONTROL
+  RISER
+  RACK_LAYOUT
+  ARCHITECTURAL
+  THREE_D_PDF
+  OTHER
+}
+
+enum DrawingStatus {
+  UPLOADING
+  UPLOADED
+  PROCESSING
+  READY
+  NEEDS_MAPPING
+  NEEDS_CONVERSION
+  FAILED
+  ARCHIVED
+}
+
+enum DrawingPageStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+enum FloorMapSourceType {
+  PDF_PAGE
+  IMAGE
+  VECTOR
+  GLTF_FLOOR
+  MANUAL
+}
+
+enum SpatialUnit {
+  METER
+}
+
+enum SpatialAxisConvention {
+  X_RIGHT_Y_DOWN_Z_UP
+}
+
+enum CalibrationStatus {
+  UNCALIBRATED
+  CALIBRATED
+  NEEDS_REVIEW
+}
+
+enum SpatialGeometryType {
+  POLYGON
+  RECTANGLE
+  LINE_STRING
+  POINT
+}
+
+enum BuildingFeatureType {
+  WALL
+  DOOR
+  WINDOW
+  STAIR
+  ELEVATOR
+  RISER
+  SHAFT
+  CABLE_TRAY
+  PATHWAY
+  COLUMN
+  RESTRICTED_AREA
+  OTHER
+}
+
+enum MountingType {
+  RACK
+  WALL
+  CEILING
+  DESK
+  FLOOR
+  POLE
+  OUTDOOR
+  VIRTUAL
+}
+
+enum PlacementAnchorType {
+  POINT
+  RACK_U
+  SURFACE
+}
+
+enum PlacementStatus {
+  PLANNED
+  INSTALLED
+  VERIFIED
+}
+
+enum DrawingImportJobType {
+  PDF_INSPECT
+  PDF_RENDER
+  PDF_EXTRACT
+  THREE_D_EXTRACT
+  GLB_PROCESS
+}
+
+enum DrawingImportJobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum BuildingModelSourceFormat {
+  GLB
+  GLTF
+  THREE_D_PDF
+  OTHER
+}
+
+enum BuildingModelStatus {
+  UPLOADING
+  UPLOADED
+  PROCESSING
+  READY
+  NEEDS_CONVERSION
+  FAILED
+  ARCHIVED
+}
+
+enum ModelNodeSemanticType {
+  BUILDING
+  FLOOR
+  WALL
+  ROOM
+  ROOF
+  STAIR
+  OTHER
+}
+
+enum CableRouteType {
+  COPPER
+  FIBER
+  DAC
+  AOC
+  POWER
+  OTHER
+}
+
+enum CableRouteStatus {
+  PLANNED
+  INSTALLED
+  VERIFIED
+}
+
+enum RiserType {
+  DATA
+  POWER
+  FIRE
+  HVAC
+  MIXED
+}
+
 model Campus {
-  id          String     @id @default(cuid())
-  code        String     @unique
+  id          String            @id @default(cuid())
+  code        String            @unique
   name        String
   address     String?
   description String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
   buildings   Building[]
+  drawings    DrawingDocument[]
 }
 
 model Building {
-  id        String           @id @default(cuid())
+  id        String            @id @default(cuid())
   campusId  String
   code      String
   name      String
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  campus    Campus           @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  campus    Campus            @relation(fields: [campusId], references: [id], onDelete: Restrict)
   floors    Floor[]
-  devices   DeviceInstance[] @relation("DeviceBuilding")
+  devices   DeviceInstance[]  @relation("DeviceBuilding")
+  drawings  DrawingDocument[]
+  models3d  BuildingModel3D[]
+  risers    Riser[]
 
   @@unique([campusId, code])
+  @@unique([id, campusId])
   @@index([campusId])
 }
 
 model Floor {
-  id                       String           @id @default(cuid())
+  id                       String                    @id @default(cuid())
   buildingId               String
   code                     String
   level                    Int
   name                     String
   elevationMeters          Float?
   floorToFloorHeightMeters Float?
-  createdAt                DateTime         @default(now())
-  updatedAt                DateTime         @updatedAt
-  building                 Building         @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  building                 Building                  @relation(fields: [buildingId], references: [id], onDelete: Restrict)
   zones                    Zone[]
-  devices                  DeviceInstance[] @relation("DeviceFloor")
+  devices                  DeviceInstance[]          @relation("DeviceFloor")
+  drawingPages             DrawingPage[]
+  floorMaps                FloorMap[]
+  coordinateSystems        SpatialCoordinateSystem[]
+  devicePlacements         DevicePlacement[]
+  buildingFeatures         BuildingFeature[]
+  cableRoutePoints         CableRoutePoint[]
+  modelNodeMappings        ModelNodeMapping[]
 
   @@unique([buildingId, code])
   @@unique([id, buildingId])
@@ -136,16 +313,18 @@ model Floor {
 }
 
 model Zone {
-  id        String           @id @default(cuid())
-  floorId   String
-  code      String
-  name      String
-  type      ZoneType         @default(OTHER)
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  floor     Floor            @relation(fields: [floorId], references: [id], onDelete: Restrict)
-  racks     Rack[]
-  devices   DeviceInstance[] @relation("DeviceZone")
+  id                String             @id @default(cuid())
+  floorId           String
+  code              String
+  name              String
+  type              ZoneType           @default(OTHER)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  floor             Floor              @relation(fields: [floorId], references: [id], onDelete: Restrict)
+  racks             Rack[]
+  devices           DeviceInstance[]   @relation("DeviceZone")
+  spatialZones      SpatialZone[]
+  modelNodeMappings ModelNodeMapping[]
 
   @@unique([floorId, code])
   @@unique([id, floorId])
@@ -237,23 +416,27 @@ model PortProfile {
 }
 
 model Scenario {
-  id               String           @id @default(cuid())
+  id               String            @id @default(cuid())
   name             String
   type             ScenarioType
   parentScenarioId String?
-  isLocked         Boolean          @default(false)
+  isLocked         Boolean           @default(false)
   createdBy        String
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  parentScenario   Scenario?        @relation("ScenarioTree", fields: [parentScenarioId], references: [id], onDelete: Restrict)
-  childScenarios   Scenario[]       @relation("ScenarioTree")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  parentScenario   Scenario?         @relation("ScenarioTree", fields: [parentScenarioId], references: [id], onDelete: Restrict)
+  childScenarios   Scenario[]        @relation("ScenarioTree")
   devices          DeviceInstance[]
+  floorMaps        FloorMap[]
+  devicePlacements DevicePlacement[]
+  buildingModels3d BuildingModel3D[]
+  cableRoutes      CableRoute[]
 
   @@index([type, isLocked])
 }
 
 model DeviceInstance {
-  id            String       @id @default(cuid())
+  id            String            @id @default(cuid())
   scenarioId    String
   assetTag      String?
   hostname      String
@@ -261,26 +444,30 @@ model DeviceInstance {
   modelId       String
   serialNumber  String?
   managementIp  String?
-  status        DeviceStatus @default(PLANNED)
+  status        DeviceStatus      @default(PLANNED)
   buildingId    String
   floorId       String
   zoneId        String?
   rackId        String?
   rackUnitStart Int?
   notes         String?
-  graphX        Float        @default(0)
-  graphY        Float        @default(0)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  scenario      Scenario     @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
-  model         DeviceModel  @relation(fields: [modelId], references: [id], onDelete: Restrict)
-  building      Building     @relation("DeviceBuilding", fields: [buildingId], references: [id], onDelete: Restrict)
-  floor         Floor        @relation("DeviceFloor", fields: [floorId, buildingId], references: [id, buildingId], onDelete: Restrict)
-  zone          Zone?        @relation("DeviceZone", fields: [zoneId, floorId], references: [id, floorId], onDelete: Restrict)
-  rack          Rack?        @relation("DeviceRack", fields: [rackId, zoneId], references: [id, zoneId], onDelete: Restrict)
+  graphX        Float             @default(0)
+  graphY        Float             @default(0)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  scenario      Scenario          @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  model         DeviceModel       @relation(fields: [modelId], references: [id], onDelete: Restrict)
+  building      Building          @relation("DeviceBuilding", fields: [buildingId], references: [id], onDelete: Restrict)
+  floor         Floor             @relation("DeviceFloor", fields: [floorId, buildingId], references: [id, buildingId], onDelete: Restrict)
+  zone          Zone?             @relation("DeviceZone", fields: [zoneId, floorId], references: [id, floorId], onDelete: Restrict)
+  rack          Rack?             @relation("DeviceRack", fields: [rackId, zoneId], references: [id, zoneId], onDelete: Restrict)
   ports         Port[]
+  placements    DevicePlacement[]
+  sourceRoutes  CableRoute[]      @relation("CableRouteSource")
+  targetRoutes  CableRoute[]      @relation("CableRouteTarget")
 
   @@unique([id, scenarioId])
+  @@unique([id, scenarioId, floorId])
   @@unique([scenarioId, hostname])
   @@unique([scenarioId, assetTag])
   @@unique([scenarioId, managementIp])
@@ -315,4 +502,352 @@ model Port {
   @@unique([deviceInstanceId, name])
   @@unique([deviceInstanceId, index])
   @@index([scenarioId, deviceInstanceId])
+}
+
+model DrawingDocument {
+  id                String              @id @default(cuid())
+  campusId          String
+  buildingId        String
+  name              String
+  documentType      DrawingDocumentType
+  status            DrawingStatus       @default(UPLOADING)
+  pageCount         Int?
+  metadataJson      Json?
+  uploadedBy        String
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  campus            Campus              @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  building          Building            @relation(fields: [buildingId, campusId], references: [id, campusId], onDelete: Restrict)
+  revisions         DrawingRevision[]
+  pages             DrawingPage[]
+  models3d          BuildingModel3D[]
+  drawingImportJobs DrawingImportJob[]
+
+  @@unique([id, buildingId])
+  @@index([buildingId, documentType, status])
+}
+
+model DrawingRevision {
+  id                String            @id @default(cuid())
+  drawingDocumentId String
+  revisionCode      String
+  originalFileName  String
+  mimeType          String
+  fileSize          Int
+  checksumSha256    String
+  storageKey        String            @unique
+  status            DrawingStatus     @default(UPLOADING)
+  issuedAt          DateTime?
+  supersedesId      String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  drawingDocument   DrawingDocument   @relation(fields: [drawingDocumentId], references: [id], onDelete: Restrict)
+  supersedes        DrawingRevision?  @relation("DrawingRevisionChain", fields: [supersedesId, drawingDocumentId], references: [id, drawingDocumentId], onDelete: Restrict)
+  supersededBy      DrawingRevision[] @relation("DrawingRevisionChain")
+  pages             DrawingPage[]
+
+  @@unique([id, drawingDocumentId])
+  @@unique([drawingDocumentId, revisionCode])
+  @@index([drawingDocumentId, status])
+}
+
+model DrawingPage {
+  id                  String            @id @default(cuid())
+  drawingDocumentId   String
+  drawingRevisionId   String
+  pageNumber          Int
+  widthPoints         Float?
+  heightPoints        Float?
+  rotation            Int               @default(0)
+  previewStorageKey   String?
+  thumbnailStorageKey String?
+  buildingId          String?
+  floorId             String?
+  titleDetected       String?
+  drawingNumber       String?
+  revisionLabel       String?
+  scaleText           String?
+  status              DrawingPageStatus @default(PENDING)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  drawingDocument     DrawingDocument   @relation(fields: [drawingDocumentId], references: [id], onDelete: Restrict)
+  drawingRevision     DrawingRevision   @relation(fields: [drawingRevisionId, drawingDocumentId], references: [id, drawingDocumentId], onDelete: Restrict)
+  floor               Floor?            @relation(fields: [floorId, buildingId], references: [id, buildingId], onDelete: Restrict)
+  floorMaps           FloorMap[]
+
+  @@unique([id, floorId])
+  @@unique([drawingRevisionId, pageNumber])
+  @@index([drawingDocumentId])
+  @@index([buildingId, floorId])
+}
+
+model SpatialCoordinateSystem {
+  id                String                @id @default(cuid())
+  floorId           String
+  name              String
+  version           Int                   @default(1)
+  unit              SpatialUnit           @default(METER)
+  originX           Float                 @default(0)
+  originY           Float                 @default(0)
+  originZ           Float                 @default(0)
+  axisConvention    SpatialAxisConvention @default(X_RIGHT_Y_DOWN_Z_UP)
+  unitsPerPdfPoint  Float?
+  calibrationStatus CalibrationStatus     @default(UNCALIBRATED)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  floor             Floor                 @relation(fields: [floorId], references: [id], onDelete: Restrict)
+  floorMaps         FloorMap[]
+  buildingFeatures  BuildingFeature[]
+  spatialZones      SpatialZone[]
+
+  @@unique([id, floorId])
+  @@unique([floorId, name, version])
+  @@index([floorId, calibrationStatus])
+}
+
+model FloorMap {
+  id                  String                  @id @default(cuid())
+  floorId             String
+  scenarioId          String?
+  name                String
+  purpose             DrawingDocumentType     @default(FLOOR_PLAN)
+  sourceType          FloorMapSourceType
+  drawingPageId       String?
+  revision            Int                     @default(1)
+  isActive            Boolean                 @default(false)
+  opacity             Float                   @default(1)
+  rotationDegrees     Float                   @default(0)
+  coordinateSystemId  String
+  pdfToFloorTransform Json?
+  cropX               Float?
+  cropY               Float?
+  cropWidth           Float?
+  cropHeight          Float?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  floor               Floor                   @relation(fields: [floorId], references: [id], onDelete: Restrict)
+  scenario            Scenario?               @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  drawingPage         DrawingPage?            @relation(fields: [drawingPageId, floorId], references: [id, floorId], onDelete: Restrict)
+  coordinateSystem    SpatialCoordinateSystem @relation(fields: [coordinateSystemId, floorId], references: [id, floorId], onDelete: Restrict)
+  calibration         ScaleCalibration?
+  placements          DevicePlacement[]
+  spatialZones        SpatialZone[]
+  buildingFeatures    BuildingFeature[]
+
+  @@unique([id, floorId])
+  @@unique([floorId, scenarioId, purpose, revision])
+  @@index([floorId, scenarioId, purpose, isActive])
+  @@index([drawingPageId])
+}
+
+model ScaleCalibration {
+  id                          String   @id @default(cuid())
+  floorMapId                  String   @unique
+  pointAPdfX                  Float
+  pointAPdfY                  Float
+  pointBPdfX                  Float
+  pointBPdfY                  Float
+  realDistanceMeters          Float
+  calculatedMetersPerPdfPoint Float
+  createdBy                   String
+  createdAt                   DateTime @default(now())
+  floorMap                    FloorMap @relation(fields: [floorMapId], references: [id], onDelete: Restrict)
+}
+
+model DevicePlacement {
+  id               String              @id @default(cuid())
+  deviceInstanceId String
+  scenarioId       String
+  floorId          String
+  floorMapId       String?
+  xMeters          Float
+  yMeters          Float
+  zMeters          Float               @default(0)
+  rotationX        Float               @default(0)
+  rotationY        Float               @default(0)
+  rotationZ        Float               @default(0)
+  mountingType     MountingType        @default(VIRTUAL)
+  anchorType       PlacementAnchorType @default(POINT)
+  placementStatus  PlacementStatus     @default(PLANNED)
+  notes            String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  device           DeviceInstance      @relation(fields: [deviceInstanceId, scenarioId, floorId], references: [id, scenarioId, floorId], onDelete: Cascade)
+  scenario         Scenario            @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  floor            Floor               @relation(fields: [floorId], references: [id], onDelete: Restrict)
+  floorMap         FloorMap?           @relation(fields: [floorMapId, floorId], references: [id, floorId], onDelete: Restrict)
+
+  @@unique([deviceInstanceId, scenarioId])
+  @@index([scenarioId, floorId])
+  @@index([floorMapId, floorId])
+}
+
+model SpatialZone {
+  id                 String                  @id @default(cuid())
+  zoneId             String
+  floorId            String
+  floorMapId         String
+  coordinateSystemId String
+  geometryType       SpatialGeometryType
+  geometryJson       Json
+  geometryVersion    Int                     @default(1)
+  areaM2             Float?
+  labelX             Float?
+  labelY             Float?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  zone               Zone                    @relation(fields: [zoneId, floorId], references: [id, floorId], onDelete: Restrict)
+  floorMap           FloorMap                @relation(fields: [floorMapId, floorId], references: [id, floorId], onDelete: Restrict)
+  coordinateSystem   SpatialCoordinateSystem @relation(fields: [coordinateSystemId, floorId], references: [id, floorId], onDelete: Restrict)
+
+  @@unique([zoneId, floorMapId])
+  @@index([floorId, floorMapId])
+}
+
+model BuildingFeature {
+  id                 String                  @id @default(cuid())
+  floorId            String
+  floorMapId         String
+  coordinateSystemId String
+  type               BuildingFeatureType
+  geometryType       SpatialGeometryType
+  geometryJson       Json
+  geometryVersion    Int                     @default(1)
+  metadataJson       Json?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  floor              Floor                   @relation(fields: [floorId], references: [id], onDelete: Restrict)
+  floorMap           FloorMap                @relation(fields: [floorMapId, floorId], references: [id, floorId], onDelete: Restrict)
+  coordinateSystem   SpatialCoordinateSystem @relation(fields: [coordinateSystemId, floorId], references: [id, floorId], onDelete: Restrict)
+  cableRoutePoints   CableRoutePoint[]
+
+  @@unique([id, floorId])
+  @@index([floorId, type])
+  @@index([floorMapId])
+}
+
+model DrawingImportJob {
+  id                String                 @id @default(cuid())
+  drawingDocumentId String
+  type              DrawingImportJobType
+  status            DrawingImportJobStatus @default(QUEUED)
+  progressPercent   Int                    @default(0)
+  currentStep       String?
+  errorCode         String?
+  errorMessage      String?
+  attempts          Int                    @default(0)
+  availableAt       DateTime               @default(now())
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  drawingDocument   DrawingDocument        @relation(fields: [drawingDocumentId], references: [id], onDelete: Restrict)
+
+  @@index([status, availableAt])
+  @@index([drawingDocumentId, type])
+}
+
+model BuildingModel3D {
+  id                      String                    @id @default(cuid())
+  buildingId              String
+  scenarioId              String?
+  sourceDrawingDocumentId String?
+  name                    String
+  sourceFormat            BuildingModelSourceFormat
+  runtimeFormat           BuildingModelSourceFormat @default(GLB)
+  sourceStorageKey        String                    @unique
+  runtimeStorageKey       String?                   @unique
+  status                  BuildingModelStatus       @default(UPLOADING)
+  scaleToMeters           Float                     @default(1)
+  originX                 Float                     @default(0)
+  originY                 Float                     @default(0)
+  originZ                 Float                     @default(0)
+  boundingBoxJson         Json?
+  metadataJson            Json?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  building                Building                  @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+  scenario                Scenario?                 @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  sourceDrawingDocument   DrawingDocument?          @relation(fields: [sourceDrawingDocumentId, buildingId], references: [id, buildingId], onDelete: Restrict)
+  nodeMappings            ModelNodeMapping[]
+
+  @@unique([id, buildingId])
+  @@unique([buildingId, scenarioId, name])
+  @@index([buildingId, scenarioId, status])
+}
+
+model ModelNodeMapping {
+  id                String                @id @default(cuid())
+  buildingModel3DId String
+  sceneNodeName     String
+  semanticType      ModelNodeSemanticType
+  floorId           String?
+  zoneId            String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  buildingModel3D   BuildingModel3D       @relation(fields: [buildingModel3DId], references: [id], onDelete: Cascade)
+  floor             Floor?                @relation(fields: [floorId], references: [id], onDelete: Restrict)
+  zone              Zone?                 @relation(fields: [zoneId, floorId], references: [id, floorId], onDelete: Restrict)
+
+  @@unique([buildingModel3DId, sceneNodeName])
+  @@index([floorId, zoneId])
+}
+
+model CableRoute {
+  id                     String            @id @default(cuid())
+  scenarioId             String
+  physicalLinkId         String?
+  routeType              CableRouteType
+  sourceDeviceId         String?
+  targetDeviceId         String?
+  totalLengthMeters      Float?
+  calculatedLengthMeters Float?
+  status                 CableRouteStatus  @default(PLANNED)
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  scenario               Scenario          @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  sourceDevice           DeviceInstance?   @relation("CableRouteSource", fields: [sourceDeviceId, scenarioId], references: [id, scenarioId], onDelete: Restrict)
+  targetDevice           DeviceInstance?   @relation("CableRouteTarget", fields: [targetDeviceId, scenarioId], references: [id, scenarioId], onDelete: Restrict)
+  points                 CableRoutePoint[]
+
+  @@unique([id, scenarioId])
+  @@index([scenarioId, status])
+  @@index([physicalLinkId, scenarioId])
+}
+
+model CableRoutePoint {
+  id           String           @id @default(cuid())
+  cableRouteId String
+  scenarioId   String
+  sequence     Int
+  floorId      String
+  xMeters      Float
+  yMeters      Float
+  zMeters      Float            @default(0)
+  featureId    String?
+  createdAt    DateTime         @default(now())
+  cableRoute   CableRoute       @relation(fields: [cableRouteId, scenarioId], references: [id, scenarioId], onDelete: Cascade)
+  floor        Floor            @relation(fields: [floorId], references: [id], onDelete: Restrict)
+  feature      BuildingFeature? @relation(fields: [featureId, floorId], references: [id, floorId], onDelete: Restrict)
+
+  @@unique([cableRouteId, sequence])
+  @@index([scenarioId, floorId])
+  @@index([featureId, floorId])
+}
+
+model Riser {
+  id           String    @id @default(cuid())
+  buildingId   String
+  code         String
+  name         String
+  type         RiserType
+  xMeters      Float?
+  yMeters      Float?
+  metadataJson Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  building     Building  @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+
+  @@unique([buildingId, code])
+  @@index([buildingId, type])
 }
