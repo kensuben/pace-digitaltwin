@@ -5,6 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import Link from "next/link";
 
 const foundations = [
   "Next.js 16 + TypeScript strict",
@@ -49,6 +50,20 @@ export default function HomePage() {
               </li>
             ))}
           </ul>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+              href="/inventory"
+            >
+              Open Inventory
+            </Link>
+            <Link
+              className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
+              href="/catalog"
+            >
+              Open Device Catalog
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </main>

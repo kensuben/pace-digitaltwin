@@ -51,7 +51,9 @@ jobs:
           npm run db:generate
 
       - name: Apply migrations to a clean database
-        run: npm run db:deploy
+        run: |
+          npm run db:deploy
+          npm run db:seed
 
       - name: Lint
         run: npm run lint

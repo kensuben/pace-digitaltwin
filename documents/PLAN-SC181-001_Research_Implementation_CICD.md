@@ -3,7 +3,7 @@
 **Hệ thống:** PACE Smart Campus 181 Network Digital Twin Web App  
 **Nguồn yêu cầu:** `SOP-SC181-001_PACE_Smart_Campus_Network_Digital_Twin_WebApp.md`  
 **Ngày lập:** 11/08/2026  
-**Trạng thái:** M0 và M0.1 hoàn tất; M1 sẵn sàng bắt đầu
+**Trạng thái:** M0, M0.1 và M1 hoàn tất; SP-0 sẵn sàng bắt đầu
 
 ## 1. Kết quả cần đạt
 

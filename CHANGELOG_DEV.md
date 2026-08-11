@@ -1,5 +1,26 @@
 # Development Changelog
 
+## 2026-08-11 — Milestone M1 Inventory & Catalog
+
+### Added
+
+- Prisma schema cho Campus, Building, Floor, Zone, Rack, Vendor, DeviceModel, PortProfile, Scenario, DeviceInstance và Port.
+- Composite scenario/location foreign keys và database CHECK constraints cho hierarchy, rack units, profile count và port index/speed.
+- Hai reviewed migrations: `m1_inventory_catalog` và `m1_location_invariants`.
+- Idempotent PACE 181 seed: 13 floors, 5 vendor models có evidence, 2 scenarios, 8 devices và 232 generated ports.
+- Pure deterministic PortProfile → Port generation cùng tests cho ordering, speed normalization và invalid/duplicate definitions.
+- Catalog/Inventory repository-service-route boundaries với CRUD API, custom model policy, locked Baseline và explicit scenario isolation.
+- UI cho Catalog, Catalog Detail, Inventory và Device Detail; form tạo custom model/device; status/delete action cho mutable scenario.
+- E2E smoke cho seeded Inventory/Catalog và CI seed trên ephemeral PostgreSQL.
+
+### Decisions and limitations
+
+- Vendor seed chỉ populate field đã đối chiếu; field chưa chắc chắn để `null`. Evidence register nằm tại `documents/references/M1-catalog-evidence.md`.
+- Optional uplink/Flexi Port modules không được giả định là fixed ports.
+- Seed lặp không overwrite seeded DeviceInstance và không xóa Port, tránh phá PhysicalLink khi M2 được bổ sung.
+- Device Detail hiển thị Links/LAG/VLAN/Model Swap là deferred: lần lượt thuộc M2, M3 và M4; M1 không tạo các bảng này.
+- Authentication/RBAC UI enforcement chưa thuộc M1; locked scenario được enforce trong service và composite ownership được enforce ở database.
+
 ## 2026-08-11 — Milestone M0.1 architecture alignment
 
 ### Added

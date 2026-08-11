@@ -27,6 +27,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --chown=node:node prisma.config.ts ./
 COPY --chown=node:node prisma ./prisma
+COPY --chown=node:node src/domain/ports ./src/domain/ports
+RUN npm run db:generate
 USER node
 CMD ["npm", "run", "db:deploy"]
 

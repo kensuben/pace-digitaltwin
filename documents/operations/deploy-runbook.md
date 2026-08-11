@@ -16,6 +16,7 @@
 3. Login GHCR bằng service account/read-only token.
 4. Đặt `APP_IMAGE` và `MIGRATOR_IMAGE` thành cặp tag cùng full commit SHA đã qua staging.
 5. Hoàn thành backup/restore check theo mức rủi ro của migration trước khi deploy.
+6. Với database mới, chạy seed M1 một lần bằng migrator image sau deploy; không thêm seed vào deploy thường lệ.
 
 ## Deploy
 
@@ -24,6 +25,12 @@ bash deploy/scripts/deploy.sh /absolute/path/to/deploy
 ```
 
 Script pull application/migrator image, chạy `prisma migrate deploy` one-shot, start stack không build và đợi Docker health checks. Nếu migration thất bại, script dừng trước khi thay application đang chạy.
+
+Khởi tạo PACE M1 seed trên database mới:
+
+```bash
+docker compose --env-file deploy/.env -f deploy/compose.prod.yaml --profile tools run --rm migrate npm run db:seed
+```
 
 ## Verify
 

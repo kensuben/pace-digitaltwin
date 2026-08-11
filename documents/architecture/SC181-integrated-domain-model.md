@@ -1,6 +1,6 @@
 # SC181 integrated domain model
 
-**Status:** M0.1 contract before the first domain migration  
+**Status:** M1 contract implemented by `20260811063350_m1_inventory_catalog` and `20260811064000_m1_location_invariants`
 **Sources:** SOP-SC181-001 and SOP-SC181-002
 
 ## Domain ownership map
@@ -79,4 +79,3 @@ No PDF, placement, cable-route or 3D tables are introduced in M1. Their foreign-
 - OCR/AI extraction;
 - PRC/U3D conversion;
 - production object-storage vendor.
-

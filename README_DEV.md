@@ -2,7 +2,7 @@
 
 ## Milestone hiện tại
 
-M0.1 đã hoàn thiện foundation và chốt ranh giới kiến trúc giữa network/spatial trước migration domain đầu tiên. Chưa triển khai Inventory, Catalog, Topology hoặc spatial domain.
+M1 đã triển khai Campus hierarchy, Device Catalog, Inventory, Device Detail, scenario isolation và port generation. Topology, link, LAG/VLAN, Model Swap và spatial domain chưa được triển khai.
 
 Đã có:
 
@@ -13,6 +13,7 @@ M0.1 đã hoàn thiện foundation và chốt ranh giới kiến trúc giữa ne
 - Vitest unit test và Playwright smoke test;
 - Docker multi-stage với application image và one-shot migrator image;
 - GitHub Actions cho quality gate và publish image lên GHCR.
+- Prisma migrations M1, seed idempotent có evidence, Catalog/Inventory CRUD API và UI.
 
 ## Yêu cầu máy phát triển
 
@@ -29,6 +30,8 @@ Máy tạo M0 hiện có Docker Engine, Compose v2 và Buildx ở cấp user. Us
 cp .env.example .env
 npm ci
 npm run db:generate
+npm run db:deploy
+npm run db:seed
 npm run dev
 ```
 
@@ -74,7 +77,7 @@ Playwright cần Chromium được cài một lần bằng `npx playwright insta
 
 ## Database
 
-M0.1 chỉ tạo Prisma scaffold; domain schema/migration đầu tiên thuộc M1. ADR scenario/versioning, tọa độ và storage/worker đã được chốt trước bước đó.
+M1 có hai migration được review: domain schema chính và location/check invariants. Seed tạo 1 campus, 13 floors, 5 vendor models, Baseline/Proposed scenarios, 8 devices và 232 generated ports.
 
 Các lệnh mục tiêu:
 
@@ -85,6 +88,20 @@ npm run db:seed
 ```
 
 Không dùng `prisma migrate dev` trên staging hoặc production.
+
+Seed có thể chạy lặp mà không xóa/recreate Port của device đã tồn tại. Production không tự động seed trong deploy thường lệ; lần khởi tạo dữ liệu được thực hiện có kiểm soát bằng migrator image:
+
+```bash
+docker compose --env-file deploy/.env -f deploy/compose.prod.yaml --profile tools run --rm migrate npm run db:seed
+```
+
+## M1 routes
+
+- UI: `/catalog`, `/catalog/[modelId]`, `/inventory`, `/inventory/[deviceId]?scenarioId=...`;
+- API: `GET/POST /api/catalog`, `GET/PATCH/DELETE /api/catalog/[modelId]`;
+- API: `GET/POST /api/inventory`, `GET/PATCH/DELETE /api/inventory/[deviceId]?scenarioId=...`.
+
+Vendor model seed là read-only qua M1 API. Custom model được gắn `USER_CONFIRMED`. Mọi mutation inventory bắt buộc scenario context và bị chặn nếu scenario locked.
 
 ## Architecture boundaries
 

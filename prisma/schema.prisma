@@ -7,5 +7,312 @@ datasource db {
   provider = "postgresql"
 }
 
-// Domain models are introduced in M1 after the ERD and scenario-versioning ADR are approved.
+enum DeviceCategory {
+  FIREWALL
+  CORE_SWITCH
+  DISTRIBUTION_SWITCH
+  ACCESS_SWITCH
+  SERVER
+  NAS
+  NVR
+  AP
+  CAMERA
+  UPS
+  ISP_CPE
+  OTHER
+}
 
+enum DeviceStatus {
+  PLANNED
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  RETIRED
+}
+
+enum ScenarioType {
+  BASELINE
+  PROPOSED
+  ALTERNATIVE
+  FAILURE
+}
+
+enum ZoneType {
+  SERVER_ROOM
+  OFFICE
+  CLASSROOM
+  COMMON
+  SECURITY
+  STORAGE
+  OTHER
+}
+
+enum SpecStatus {
+  VERIFIED_VENDOR
+  USER_CONFIRMED
+  ESTIMATED
+  UNKNOWN
+}
+
+enum PortMedia {
+  RJ45
+  SFP
+  SFP_PLUS
+  SFP28
+  QSFP28
+}
+
+enum PoeStandard {
+  NONE
+  POE
+  POE_PLUS
+  POE_PLUS_PLUS
+}
+
+enum PortRoleHint {
+  MANAGEMENT
+  DATA
+  UPLINK
+  WAN
+  HA
+  CONSOLE
+  OTHER
+}
+
+enum PortAdminStatus {
+  ENABLED
+  DISABLED
+}
+
+enum PortOperationalStatus {
+  UP
+  DOWN
+  UNKNOWN
+}
+
+model Campus {
+  id          String     @id @default(cuid())
+  code        String     @unique
+  name        String
+  address     String?
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  buildings   Building[]
+}
+
+model Building {
+  id        String           @id @default(cuid())
+  campusId  String
+  code      String
+  name      String
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  campus    Campus           @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  floors    Floor[]
+  devices   DeviceInstance[] @relation("DeviceBuilding")
+
+  @@unique([campusId, code])
+  @@index([campusId])
+}
+
+model Floor {
+  id                       String           @id @default(cuid())
+  buildingId               String
+  code                     String
+  level                    Int
+  name                     String
+  elevationMeters          Float?
+  floorToFloorHeightMeters Float?
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+  building                 Building         @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+  zones                    Zone[]
+  devices                  DeviceInstance[] @relation("DeviceFloor")
+
+  @@unique([buildingId, code])
+  @@unique([id, buildingId])
+  @@index([buildingId, level])
+}
+
+model Zone {
+  id        String           @id @default(cuid())
+  floorId   String
+  code      String
+  name      String
+  type      ZoneType         @default(OTHER)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  floor     Floor            @relation(fields: [floorId], references: [id], onDelete: Restrict)
+  racks     Rack[]
+  devices   DeviceInstance[] @relation("DeviceZone")
+
+  @@unique([floorId, code])
+  @@unique([id, floorId])
+  @@index([floorId])
+}
+
+model Rack {
+  id        String           @id @default(cuid())
+  zoneId    String
+  code      String
+  name      String
+  rackUnits Int
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  zone      Zone             @relation(fields: [zoneId], references: [id], onDelete: Restrict)
+  devices   DeviceInstance[] @relation("DeviceRack")
+
+  @@unique([zoneId, code])
+  @@unique([id, zoneId])
+  @@index([zoneId])
+}
+
+model Vendor {
+  id        String        @id @default(cuid())
+  code      String        @unique
+  name      String
+  website   String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  models    DeviceModel[]
+}
+
+model DeviceModel {
+  id                    String           @id @default(cuid())
+  vendorId              String
+  category              DeviceCategory
+  sku                   String           @unique
+  modelName             String
+  formFactor            String?
+  rackUnits             Int?
+  switchingCapacityGbps Float?
+  forwardingMpps        Float?
+  firewallGbps          Float?
+  ipsGbps               Float?
+  ngfwGbps              Float?
+  tlsInspectionGbps     Float?
+  maxVlans              Int?
+  maxLagGroups          Int?
+  maxLagMembers         Int?
+  supportsLacp          Boolean          @default(false)
+  supportsMlag          Boolean          @default(false)
+  supportsStacking      Boolean          @default(false)
+  supportsHa            Boolean          @default(false)
+  stackBandwidthGbps    Float?
+  managementOs          String?
+  metadataJson          Json?
+  sourceUrl             String?
+  specStatus            SpecStatus       @default(UNKNOWN)
+  verifiedAt            DateTime?
+  isCustom              Boolean          @default(false)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  vendor                Vendor           @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  portProfiles          PortProfile[]
+  instances             DeviceInstance[]
+
+  @@index([vendorId, category])
+}
+
+model PortProfile {
+  id                  String       @id @default(cuid())
+  modelId             String
+  portGroup           String
+  count               Int
+  media               PortMedia
+  supportedSpeedsMbps Int[]        @default([])
+  poeStandard         PoeStandard  @default(NONE)
+  roleHint            PortRoleHint @default(DATA)
+  breakoutCapable     Boolean      @default(false)
+  namePrefix          String
+  startNumber         Int          @default(1)
+  sortOrder           Int          @default(0)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  model               DeviceModel  @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@unique([modelId, portGroup])
+  @@index([modelId, sortOrder])
+}
+
+model Scenario {
+  id               String           @id @default(cuid())
+  name             String
+  type             ScenarioType
+  parentScenarioId String?
+  isLocked         Boolean          @default(false)
+  createdBy        String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  parentScenario   Scenario?        @relation("ScenarioTree", fields: [parentScenarioId], references: [id], onDelete: Restrict)
+  childScenarios   Scenario[]       @relation("ScenarioTree")
+  devices          DeviceInstance[]
+
+  @@index([type, isLocked])
+}
+
+model DeviceInstance {
+  id            String       @id @default(cuid())
+  scenarioId    String
+  assetTag      String?
+  hostname      String
+  displayName   String
+  modelId       String
+  serialNumber  String?
+  managementIp  String?
+  status        DeviceStatus @default(PLANNED)
+  buildingId    String
+  floorId       String
+  zoneId        String?
+  rackId        String?
+  rackUnitStart Int?
+  notes         String?
+  graphX        Float        @default(0)
+  graphY        Float        @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  scenario      Scenario     @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  model         DeviceModel  @relation(fields: [modelId], references: [id], onDelete: Restrict)
+  building      Building     @relation("DeviceBuilding", fields: [buildingId], references: [id], onDelete: Restrict)
+  floor         Floor        @relation("DeviceFloor", fields: [floorId, buildingId], references: [id, buildingId], onDelete: Restrict)
+  zone          Zone?        @relation("DeviceZone", fields: [zoneId, floorId], references: [id, floorId], onDelete: Restrict)
+  rack          Rack?        @relation("DeviceRack", fields: [rackId, zoneId], references: [id, zoneId], onDelete: Restrict)
+  ports         Port[]
+
+  @@unique([id, scenarioId])
+  @@unique([scenarioId, hostname])
+  @@unique([scenarioId, assetTag])
+  @@unique([scenarioId, managementIp])
+  @@index([scenarioId, status])
+  @@index([buildingId, floorId])
+  @@index([modelId])
+}
+
+model Port {
+  id                   String                @id @default(cuid())
+  scenarioId           String
+  deviceInstanceId     String
+  name                 String
+  index                Int
+  media                PortMedia
+  supportedSpeedsMbps  Int[]                 @default([])
+  poeStandard          PoeStandard           @default(NONE)
+  roleHint             PortRoleHint          @default(DATA)
+  breakoutCapable      Boolean               @default(false)
+  negotiatedSpeedMbps  Int?
+  adminStatus          PortAdminStatus       @default(ENABLED)
+  operationalStatus    PortOperationalStatus @default(UNKNOWN)
+  description          String?
+  parentBreakoutPortId String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  device               DeviceInstance        @relation(fields: [deviceInstanceId, scenarioId], references: [id, scenarioId], onDelete: Cascade)
+  parentBreakoutPort   Port?                 @relation("PortBreakout", fields: [parentBreakoutPortId, scenarioId], references: [id, scenarioId], onDelete: Restrict)
+  breakoutChildren     Port[]                @relation("PortBreakout")
+
+  @@unique([id, scenarioId])
+  @@unique([deviceInstanceId, name])
+  @@unique([deviceInstanceId, index])
+  @@index([scenarioId, deviceInstanceId])
+}

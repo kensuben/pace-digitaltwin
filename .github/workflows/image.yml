@@ -57,6 +57,7 @@ jobs:
           npx prisma validate
           npm run db:generate
           npm run db:deploy
+          npm run db:seed
 
       - name: Run required quality gates
         run: |
