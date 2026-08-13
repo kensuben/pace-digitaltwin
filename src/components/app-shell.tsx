@@ -5,6 +5,7 @@ const navigation = [
   { href: "/inventory", label: "Inventory" },
   { href: "/catalog", label: "Device Catalog" },
   { href: "/topology", label: "Topology" },
+  { href: "/network-config", label: "LAG / VLAN / IP" },
   { href: "/drawings", label: "Drawings" },
 ];
 

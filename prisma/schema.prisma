@@ -110,6 +110,29 @@ enum LinkDuplex {
   AUTO
 }
 
+enum LagProtocol {
+  STATIC
+  LACP
+}
+
+enum LagMode {
+  ACTIVE
+  PASSIVE
+  ON
+}
+
+enum LogicalSpeedPolicy {
+  SUM_MEMBERS
+  MIN_MEMBER
+  MANUAL
+}
+
+enum VlanMembershipMode {
+  ACCESS
+  TRUNK
+  HYBRID
+}
+
 enum DrawingDocumentType {
   FLOOR_PLAN
   ELV
@@ -453,6 +476,10 @@ model Scenario {
   cableRoutes      CableRoute[]
   physicalLinks    PhysicalLink[]
   auditLogs        AuditLog[]
+  lagGroups        LagGroup[]
+  vlans            Vlan[]
+  subnets          Subnet[]
+  vlanMemberships  VlanMembership[]
 
   @@index([type, isLocked])
 }
@@ -487,6 +514,7 @@ model DeviceInstance {
   placements    DevicePlacement[]
   sourceRoutes  CableRoute[]      @relation("CableRouteSource")
   targetRoutes  CableRoute[]      @relation("CableRouteTarget")
+  lagGroups     LagGroup[]
 
   @@unique([id, scenarioId])
   @@unique([id, scenarioId, floorId])
@@ -521,11 +549,123 @@ model Port {
   breakoutChildren     Port[]                @relation("PortBreakout")
   sourceLinks          PhysicalLink[]        @relation("PhysicalLinkSource")
   targetLinks          PhysicalLink[]        @relation("PhysicalLinkTarget")
+  lagMembership        LagMember?
+  vlanMembership       VlanMembership?
 
   @@unique([id, scenarioId])
   @@unique([deviceInstanceId, name])
   @@unique([deviceInstanceId, index])
   @@index([scenarioId, deviceInstanceId])
+}
+
+model LagGroup {
+  id                 String             @id @default(cuid())
+  scenarioId         String
+  deviceInstanceId   String
+  name               String
+  protocol           LagProtocol        @default(LACP)
+  mode               LagMode            @default(ACTIVE)
+  minLinks           Int                @default(1)
+  logicalSpeedPolicy LogicalSpeedPolicy @default(SUM_MEMBERS)
+  manualSpeedMbps    Int?
+  description        String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  scenario           Scenario           @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  device             DeviceInstance     @relation(fields: [deviceInstanceId, scenarioId], references: [id, scenarioId], onDelete: Cascade)
+  members            LagMember[]
+  vlanMembership     VlanMembership?
+
+  @@unique([id, scenarioId])
+  @@unique([scenarioId, deviceInstanceId, name])
+  @@index([scenarioId, deviceInstanceId])
+}
+
+model LagMember {
+  lagGroupId String
+  portId     String   @unique
+  scenarioId String
+  createdAt  DateTime @default(now())
+  lagGroup   LagGroup @relation(fields: [lagGroupId, scenarioId], references: [id, scenarioId], onDelete: Cascade)
+  port       Port     @relation(fields: [portId, scenarioId], references: [id, scenarioId], onDelete: Cascade)
+
+  @@id([lagGroupId, portId])
+  @@unique([portId, scenarioId])
+  @@index([scenarioId, portId])
+}
+
+model Vlan {
+  id                String                  @id @default(cuid())
+  scenarioId        String
+  vlanId            Int
+  name              String
+  purpose           String?
+  colorKey          String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  scenario          Scenario                @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  subnets           Subnet[]
+  nativeMemberships VlanMembership[]        @relation("NativeVlan")
+  allowedOn         VlanMembershipAllowed[]
+
+  @@unique([id, scenarioId])
+  @@unique([scenarioId, vlanId])
+  @@index([scenarioId, name])
+}
+
+model Subnet {
+  id          String   @id @default(cuid())
+  scenarioId  String
+  vlanId      String?
+  name        String
+  cidr        String
+  gateway     String?
+  dhcpStart   String?
+  dhcpEnd     String?
+  dnsServers  String[] @default([])
+  vrf         String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  scenario    Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  vlan        Vlan?    @relation(fields: [vlanId, scenarioId], references: [id, scenarioId], onDelete: Restrict)
+
+  @@unique([id, scenarioId])
+  @@unique([scenarioId, cidr, vrf])
+  @@index([scenarioId, vlanId])
+}
+
+model VlanMembership {
+  id           String                  @id @default(cuid())
+  scenarioId   String
+  portId       String?                 @unique
+  lagGroupId   String?                 @unique
+  mode         VlanMembershipMode
+  nativeVlanId String?
+  description  String?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  scenario     Scenario                @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  port         Port?                   @relation(fields: [portId, scenarioId], references: [id, scenarioId], onDelete: Cascade)
+  lagGroup     LagGroup?               @relation(fields: [lagGroupId, scenarioId], references: [id, scenarioId], onDelete: Cascade)
+  nativeVlan   Vlan?                   @relation("NativeVlan", fields: [nativeVlanId, scenarioId], references: [id, scenarioId], onDelete: Restrict)
+  allowedVlans VlanMembershipAllowed[]
+
+  @@unique([id, scenarioId])
+  @@unique([portId, scenarioId])
+  @@unique([lagGroupId, scenarioId])
+  @@index([scenarioId, mode])
+}
+
+model VlanMembershipAllowed {
+  membershipId String
+  vlanId       String
+  scenarioId   String
+  membership   VlanMembership @relation(fields: [membershipId, scenarioId], references: [id, scenarioId], onDelete: Cascade)
+  vlan         Vlan           @relation(fields: [vlanId, scenarioId], references: [id, scenarioId], onDelete: Cascade)
+
+  @@id([membershipId, vlanId])
+  @@index([scenarioId, vlanId])
 }
 
 model PhysicalLink {
