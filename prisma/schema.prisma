@@ -133,6 +133,12 @@ enum VlanMembershipMode {
   HYBRID
 }
 
+enum ValidationSeverity {
+  ERROR
+  WARNING
+  INFO
+}
+
 enum DrawingDocumentType {
   FLOOR_PLAN
   ELV
@@ -459,27 +465,28 @@ model PortProfile {
 }
 
 model Scenario {
-  id               String            @id @default(cuid())
-  name             String
-  type             ScenarioType
-  parentScenarioId String?
-  isLocked         Boolean           @default(false)
-  createdBy        String
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  parentScenario   Scenario?         @relation("ScenarioTree", fields: [parentScenarioId], references: [id], onDelete: Restrict)
-  childScenarios   Scenario[]        @relation("ScenarioTree")
-  devices          DeviceInstance[]
-  floorMaps        FloorMap[]
-  devicePlacements DevicePlacement[]
-  buildingModels3d BuildingModel3D[]
-  cableRoutes      CableRoute[]
-  physicalLinks    PhysicalLink[]
-  auditLogs        AuditLog[]
-  lagGroups        LagGroup[]
-  vlans            Vlan[]
-  subnets          Subnet[]
-  vlanMemberships  VlanMembership[]
+  id                 String              @id @default(cuid())
+  name               String
+  type               ScenarioType
+  parentScenarioId   String?
+  isLocked           Boolean             @default(false)
+  createdBy          String
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  parentScenario     Scenario?           @relation("ScenarioTree", fields: [parentScenarioId], references: [id], onDelete: Restrict)
+  childScenarios     Scenario[]          @relation("ScenarioTree")
+  devices            DeviceInstance[]
+  floorMaps          FloorMap[]
+  devicePlacements   DevicePlacement[]
+  buildingModels3d   BuildingModel3D[]
+  cableRoutes        CableRoute[]
+  physicalLinks      PhysicalLink[]
+  auditLogs          AuditLog[]
+  lagGroups          LagGroup[]
+  vlans              Vlan[]
+  subnets            Subnet[]
+  vlanMemberships    VlanMembership[]
+  validationFindings ValidationFinding[]
 
   @@index([type, isLocked])
 }
@@ -706,6 +713,24 @@ model AuditLog {
   scenario   Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
 
   @@index([scenarioId, timestamp])
+  @@index([entityType, entityId])
+}
+
+model ValidationFinding {
+  id           String             @id @default(cuid())
+  scenarioId   String
+  severity     ValidationSeverity
+  ruleCode     String
+  entityType   String
+  entityId     String
+  message      String
+  remediation  String?
+  metadataJson Json?
+  createdAt    DateTime           @default(now())
+  scenario     Scenario           @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@index([scenarioId, severity])
+  @@index([scenarioId, ruleCode])
   @@index([entityType, entityId])
 }
 

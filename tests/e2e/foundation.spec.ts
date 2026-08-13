@@ -201,6 +201,54 @@ test("persists a port-first M2 topology link", async ({ page, request }) => {
   expect(deleted.ok()).toBe(true);
 });
 
+test("previews M4 model swap and persists validation findings", async ({
+  request,
+}) => {
+  const inventoryResponse = await request.get(
+    "/api/inventory?scenarioId=scenario-proposed",
+  );
+  const inventory = (await inventoryResponse.json()) as {
+    data: Array<{ id: string; hostname: string; model: { id: string } }>;
+  };
+  const core = inventory.data.find((device) => device.hostname === "CORE-01");
+  expect(core).toBeTruthy();
+
+  const optionsResponse = await request.get("/api/catalog");
+  const options = (await optionsResponse.json()) as {
+    data: Array<{ id: string; category: string }>;
+  };
+  const target = options.data.find(
+    (model) => model.category === "CORE_SWITCH" && model.id !== core?.model.id,
+  );
+  expect(target).toBeTruthy();
+
+  const preview = await request.post(
+    `/api/devices/${core?.id}/swap-model/preview`,
+    {
+      data: {
+        scenarioId: "scenario-proposed",
+        targetModelId: target?.id,
+      },
+    },
+  );
+  expect(preview.ok()).toBe(true);
+  await expect(preview.json()).resolves.toMatchObject({
+    data: { summary: { currentPortCount: expect.any(Number) } },
+  });
+
+  const validation = await request.post(
+    "/api/scenarios/scenario-proposed/validate",
+  );
+  expect(validation.ok()).toBe(true);
+  const findings = await request.get(
+    "/api/scenarios/scenario-proposed/validation",
+  );
+  expect(findings.ok()).toBe(true);
+  await expect(findings.json()).resolves.toMatchObject({
+    data: expect.any(Array),
+  });
+});
+
 test("uploads, processes and maps an SP-1 PDF page", async ({ request }) => {
   const created = await request.post("/api/drawings", {
     data: {

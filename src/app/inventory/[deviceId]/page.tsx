@@ -3,10 +3,13 @@ import { notFound } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
 import { DeviceActions } from "@/components/inventory/device-actions";
-import { Button } from "@/components/ui/button";
+import { ModelSwap } from "@/components/inventory/model-swap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppError } from "@/server/errors";
-import { getInventoryDevice } from "@/server/services/inventoryService";
+import {
+  getInventoryDevice,
+  getInventoryOptions,
+} from "@/server/services/inventoryService";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +34,7 @@ export default async function DevicePage({
       throw error;
     },
   );
+  const options = await getInventoryOptions();
   const links = device.ports.flatMap((port) => [
     ...port.sourceLinks.map((physicalLink) => ({
       ...physicalLink,
@@ -63,9 +67,6 @@ export default async function DevicePage({
               {device.scenario.isLocked ? " · Locked" : ""}
             </p>
           </div>
-          <Button disabled title="Model Swap thuộc M4">
-            Change Model — M4
-          </Button>
           <Link
             className="rounded-md border px-4 py-2 font-semibold text-primary hover:bg-accent"
             href={`/floors/${device.floorId}/map?scenarioId=${scenarioId}`}
@@ -73,6 +74,21 @@ export default async function DevicePage({
             Locate on 2D map →
           </Link>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Change Model</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ModelSwap
+              currentModelId={device.modelId}
+              deviceId={device.id}
+              locked={device.scenario.isLocked}
+              models={options.models}
+              scenarioId={scenarioId}
+            />
+          </CardContent>
+        </Card>
 
         <div className="grid gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2">
@@ -220,7 +236,7 @@ export default async function DevicePage({
             <CardTitle>Deferred detail sections</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            LAG/VLAN thuộc M3; Model Swap và validation engine thuộc M4.
+            Scenario simulation và capacity/risk dashboard thuộc M5.
           </CardContent>
         </Card>
       </div>

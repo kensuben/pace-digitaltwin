@@ -338,7 +338,7 @@ export class PrismaFloorMapRepository implements FloorMapRepository {
       }),
       this.prisma.deviceInstance.findMany({
         where: { floorId, scenarioId },
-        include: { model: true, placement: true },
+        include: { model: true, placements: true },
         orderBy: { hostname: "asc" },
       }),
       this.prisma.drawingPage.findMany({
@@ -351,7 +351,16 @@ export class PrismaFloorMapRepository implements FloorMapRepository {
         orderBy: { createdAt: "desc" },
       }),
     ]);
-    return { floor, maps, placements, devices, pages };
+    return {
+      floor,
+      maps,
+      placements,
+      devices: devices.map(({ placements: devicePlacements, ...device }) => ({
+        ...device,
+        placement: devicePlacements[0] ?? null,
+      })),
+      pages,
+    };
   }
 
   getPlacement(id: string, scenarioId: string) {
