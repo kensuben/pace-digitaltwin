@@ -37,6 +37,22 @@ services:
     volumes:
       - object_storage:/var/lib/pace-digitaltwin/objects
 
+  pdf-worker:
+    build:
+      context: .
+      target: pdf-worker
+    environment:
+      DATABASE_URL: postgresql://pace:pace_dev_password@postgres:5432/pace_digital_twin?schema=public
+      APP_ENV: local
+      OBJECT_STORAGE_DRIVER: filesystem
+      OBJECT_STORAGE_ROOT: /var/lib/pace-digitaltwin/objects
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - object_storage:/var/lib/pace-digitaltwin/objects
+    restart: unless-stopped
+
   migrate:
     profiles: ["tools"]
     build:

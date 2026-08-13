@@ -16,7 +16,17 @@ const inventoryInclude = {
 
 const inventoryDetailInclude = {
   ...inventoryInclude,
-  ports: { orderBy: { index: "asc" as const } },
+  ports: {
+    orderBy: { index: "asc" as const },
+    include: {
+      sourceLinks: {
+        include: { targetPort: { include: { device: true } } },
+      },
+      targetLinks: {
+        include: { sourcePort: { include: { device: true } } },
+      },
+    },
+  },
 } satisfies Prisma.DeviceInstanceInclude;
 
 export type InventoryRecord = Prisma.DeviceInstanceGetPayload<{

@@ -105,6 +105,17 @@ jobs:
             type=semver,pattern={{major}}.{{minor}},suffix=-migrator
             type=semver,pattern={{major}},suffix=-migrator
 
+      - name: Generate PDF worker OCI metadata
+        id: worker-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,format=long,prefix=sha-,suffix=-pdf-worker
+            type=semver,pattern={{version}},suffix=-pdf-worker
+            type=semver,pattern={{major}}.{{minor}},suffix=-pdf-worker
+            type=semver,pattern={{major}},suffix=-pdf-worker
+
       - name: Build and publish image
         id: build
         uses: docker/build-push-action@v6
@@ -135,6 +146,21 @@ jobs:
           provenance: mode=max
           sbom: true
 
+      - name: Build and publish PDF worker image
+        id: worker-build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: pdf-worker
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.worker-meta.outputs.tags }}
+          labels: ${{ steps.worker-meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v3
         with:
@@ -147,4 +173,11 @@ jobs:
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.migrator-build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest PDF worker build provenance
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.worker-build.outputs.digest }}
           push-to-registry: true

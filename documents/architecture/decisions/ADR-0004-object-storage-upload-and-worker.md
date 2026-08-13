@@ -52,9 +52,9 @@ Next.js does not buffer large PDF/GLB bodies in application memory for productio
 - Database and object deletion are coordinated through explicit lifecycle states/retry jobs; failed storage deletion never masquerades as success.
 - Source PDFs remain immutable for audit unless an authorized retention deletion is executed.
 
-### License gate
+### License gate (resolved by ADR-0005)
 
-PyMuPDF implementation cannot start until the project accepts AGPL obligations or obtains an appropriate commercial license. If neither is acceptable, SP-1 must select and benchmark an alternative through a superseding ADR.
+ADR-0005 selected PDF.js and a Node.js worker under permissive licenses. The earlier PyMuPDF/Python worker choice is superseded.
 
 ## Alternatives considered
 

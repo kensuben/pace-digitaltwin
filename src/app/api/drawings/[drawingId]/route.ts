@@ -2,9 +2,9 @@ import { AppError } from "@/server/errors";
 import { apiError, apiSuccess } from "@/server/http/apiResponse";
 import {
   deleteDrawingDocument,
-  getDrawingDocument,
   updateDrawingDocument,
 } from "@/server/services/drawingService";
+import { getPdfDrawingDetail } from "@/server/services/pdfIngestionService";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ interface RouteContext {
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const { drawingId } = await context.params;
-    return apiSuccess(await getDrawingDocument(drawingId));
+    return apiSuccess(await getPdfDrawingDetail(drawingId));
   } catch (error) {
     return apiError(error);
   }

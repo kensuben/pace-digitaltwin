@@ -4,6 +4,8 @@ const navigation = [
   { href: "/", label: "Overview" },
   { href: "/inventory", label: "Inventory" },
   { href: "/catalog", label: "Device Catalog" },
+  { href: "/topology", label: "Topology" },
+  { href: "/drawings", label: "Drawings" },
 ];
 
 export function AppShell({

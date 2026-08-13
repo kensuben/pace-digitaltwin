@@ -31,6 +31,20 @@ export default async function DevicePage({
       throw error;
     },
   );
+  const links = device.ports.flatMap((port) => [
+    ...port.sourceLinks.map((physicalLink) => ({
+      ...physicalLink,
+      localPort: port.name,
+      remotePort: physicalLink.targetPort.name,
+      remoteDevice: physicalLink.targetPort.device.hostname,
+    })),
+    ...port.targetLinks.map((physicalLink) => ({
+      ...physicalLink,
+      localPort: port.name,
+      remotePort: physicalLink.sourcePort.name,
+      remoteDevice: physicalLink.sourcePort.device.hostname,
+    })),
+  ]);
 
   return (
     <AppShell>
@@ -149,11 +163,58 @@ export default async function DevicePage({
 
         <Card>
           <CardHeader>
+            <CardTitle>Physical links ({links.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            {links.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Chưa có link. Tạo kết nối bằng port trong topology editor.
+              </p>
+            ) : (
+              <table className="w-full min-w-3xl text-left text-sm">
+                <thead className="text-muted-foreground">
+                  <tr>
+                    <th className="pb-3">Local port</th>
+                    <th>Remote endpoint</th>
+                    <th>Type / speed</th>
+                    <th>Status</th>
+                    <th>Cable</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {links.map((physicalLink) => (
+                    <tr className="border-t" key={physicalLink.id}>
+                      <td className="py-3 font-medium">
+                        {physicalLink.localPort}
+                      </td>
+                      <td>
+                        {physicalLink.remoteDevice} / {physicalLink.remotePort}
+                      </td>
+                      <td>
+                        {physicalLink.linkType} / {physicalLink.speedMbps} Mbps
+                      </td>
+                      <td>{physicalLink.status}</td>
+                      <td>{physicalLink.cableLabel ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <Link
+              className="mt-4 inline-block font-semibold text-primary hover:underline"
+              href={`/topology/${scenarioId}`}
+            >
+              Locate in topology →
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Deferred detail sections</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            Links thuộc M2; LAG/VLAN thuộc M3; Model Swap và audit transaction
-            thuộc M4.
+            LAG/VLAN thuộc M3; Model Swap và validation engine thuộc M4.
           </CardContent>
         </Card>
       </div>

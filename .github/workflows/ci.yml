@@ -78,3 +78,6 @@ jobs:
 
       - name: Build migration container without publishing
         run: docker build --target migrator --tag pace-digitaltwin:${{ github.sha }}-migrator .
+
+      - name: Build PDF worker container without publishing
+        run: docker build --target pdf-worker --tag pace-digitaltwin:${{ github.sha }}-pdf-worker .

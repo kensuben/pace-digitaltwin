@@ -54,6 +54,23 @@ export function createDrawingObjectKey(input: {
   return `campuses/${input.campusId}/drawings/${input.documentId}/revisions/${input.revisionId}/source.${extension}`;
 }
 
+export function createDrawingPageObjectKey(input: {
+  campusId: string;
+  documentId: string;
+  revisionId: string;
+  pageNumber: number;
+  variant: "preview" | "thumbnail";
+  extension: "png" | "webp";
+}): string {
+  assertKeyPart(input.campusId, "campusId");
+  assertKeyPart(input.documentId, "documentId");
+  assertKeyPart(input.revisionId, "revisionId");
+  if (!Number.isInteger(input.pageNumber) || input.pageNumber < 1) {
+    throw new Error("pageNumber must be a positive integer.");
+  }
+  return `campuses/${input.campusId}/drawings/${input.documentId}/revisions/${input.revisionId}/pages/${input.pageNumber}/${input.variant}.${input.extension}`;
+}
+
 export function assertSafeObjectKey(key: string) {
   if (
     !key ||

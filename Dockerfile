@@ -32,6 +32,18 @@ RUN npm run db:generate
 USER node
 CMD ["npm", "run", "db:deploy"]
 
+FROM migrator-dependencies AS pdf-worker
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --chown=node:node prisma.config.ts tsconfig.json package.json ./
+COPY --chown=node:node prisma ./prisma
+COPY --chown=node:node src ./src
+RUN npm run db:generate
+RUN mkdir -p /var/lib/pace-digitaltwin/objects \
+    && chown 1001:1001 /var/lib/pace-digitaltwin/objects
+USER 1001
+CMD ["npm", "run", "worker:pdf"]
+
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production \

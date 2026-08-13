@@ -90,6 +90,26 @@ enum PortOperationalStatus {
   UNKNOWN
 }
 
+enum LinkType {
+  ETHERNET
+  FIBER
+  DAC
+  AOC
+}
+
+enum LinkStatus {
+  PLANNED
+  ACTIVE
+  INACTIVE
+  INVALID
+}
+
+enum LinkDuplex {
+  FULL
+  HALF
+  AUTO
+}
+
 enum DrawingDocumentType {
   FLOOR_PLAN
   ELV
@@ -431,6 +451,8 @@ model Scenario {
   devicePlacements DevicePlacement[]
   buildingModels3d BuildingModel3D[]
   cableRoutes      CableRoute[]
+  physicalLinks    PhysicalLink[]
+  auditLogs        AuditLog[]
 
   @@index([type, isLocked])
 }
@@ -497,11 +519,54 @@ model Port {
   device               DeviceInstance        @relation(fields: [deviceInstanceId, scenarioId], references: [id, scenarioId], onDelete: Cascade)
   parentBreakoutPort   Port?                 @relation("PortBreakout", fields: [parentBreakoutPortId, scenarioId], references: [id, scenarioId], onDelete: Restrict)
   breakoutChildren     Port[]                @relation("PortBreakout")
+  sourceLinks          PhysicalLink[]        @relation("PhysicalLinkSource")
+  targetLinks          PhysicalLink[]        @relation("PhysicalLinkTarget")
 
   @@unique([id, scenarioId])
   @@unique([deviceInstanceId, name])
   @@unique([deviceInstanceId, index])
   @@index([scenarioId, deviceInstanceId])
+}
+
+model PhysicalLink {
+  id           String      @id @default(cuid())
+  scenarioId   String
+  sourcePortId String
+  targetPortId String
+  linkType     LinkType
+  speedMbps    Int
+  duplex       LinkDuplex  @default(FULL)
+  status       LinkStatus  @default(PLANNED)
+  cableLabel   String?
+  lengthMeters Float?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  scenario     Scenario    @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  sourcePort   Port        @relation("PhysicalLinkSource", fields: [sourcePortId, scenarioId], references: [id, scenarioId], onDelete: Restrict)
+  targetPort   Port        @relation("PhysicalLinkTarget", fields: [targetPortId, scenarioId], references: [id, scenarioId], onDelete: Restrict)
+  cableRoute   CableRoute?
+
+  @@unique([id, scenarioId])
+  @@unique([scenarioId, sourcePortId, targetPortId])
+  @@index([scenarioId, status])
+  @@index([sourcePortId, scenarioId])
+  @@index([targetPortId, scenarioId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  scenarioId String
+  actorId    String
+  action     String
+  entityType String
+  entityId   String
+  beforeJson Json?
+  afterJson  Json?
+  timestamp  DateTime @default(now())
+  scenario   Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@index([scenarioId, timestamp])
+  @@index([entityType, entityId])
 }
 
 model DrawingDocument {
@@ -806,11 +871,13 @@ model CableRoute {
   createdAt              DateTime          @default(now())
   updatedAt              DateTime          @updatedAt
   scenario               Scenario          @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  physicalLink           PhysicalLink?     @relation(fields: [physicalLinkId, scenarioId], references: [id, scenarioId], onDelete: Restrict)
   sourceDevice           DeviceInstance?   @relation("CableRouteSource", fields: [sourceDeviceId, scenarioId], references: [id, scenarioId], onDelete: Restrict)
   targetDevice           DeviceInstance?   @relation("CableRouteTarget", fields: [targetDeviceId, scenarioId], references: [id, scenarioId], onDelete: Restrict)
   points                 CableRoutePoint[]
 
   @@unique([id, scenarioId])
+  @@unique([physicalLinkId, scenarioId])
   @@index([scenarioId, status])
   @@index([physicalLinkId, scenarioId])
 }

@@ -1,6 +1,6 @@
 # SC181 integrated domain model
 
-**Status:** M1 and SP-0 contracts implemented; spatial foundation migration is `20260811163000_sp0_spatial_foundation`
+**Status:** M1, SP-0, M2 and SP-1 contracts implemented; PDF ingestion reuses the SP-0 schema and adds no migration
 **Sources:** SOP-SC181-001 and SOP-SC181-002
 
 ## Domain ownership map
@@ -56,7 +56,8 @@ No PDF, placement, cable-route or 3D tables are introduced in M1. Their foreign-
 - Placement `(deviceInstanceId, scenarioId)` must reference DeviceInstance with the same scenario.
 - Placement floor must match DeviceInstance floor.
 - Scenario-specific FloorMap and BuildingModel3D overrides never duplicate source binary objects.
-- CableRoute is scenario-owned; `physicalLinkId` is constrained to null until M2 can add its composite PhysicalLink foreign key.
+- CableRoute is scenario-owned and can reference one PhysicalLink through a same-scenario composite foreign key.
+- PhysicalLink endpoints are Port records in the same Scenario.
 - Canonical placement survives FloorMap revision and drawing deletion.
 - RackPlacement locates a Rack; DeviceInstance remains authoritative for rack/U assignment.
 

@@ -9,6 +9,7 @@ import { FilesystemObjectStorage } from "@/server/storage/filesystemObjectStorag
 import {
   assertSafeObjectKey,
   createDrawingObjectKey,
+  createDrawingPageObjectKey,
 } from "@/server/storage/objectStorage";
 
 const temporaryDirectories: string[] = [];
@@ -105,6 +106,21 @@ describe("FilesystemObjectStorage", () => {
         maxBytes: 2,
       }),
     ).rejects.toThrow("byte limit");
+  });
+
+  it("creates deterministic derived page keys", () => {
+    expect(
+      createDrawingPageObjectKey({
+        campusId: "campus-1",
+        documentId: "document-1",
+        revisionId: "revision-1",
+        pageNumber: 2,
+        variant: "thumbnail",
+        extension: "webp",
+      }),
+    ).toBe(
+      "campuses/campus-1/drawings/document-1/revisions/revision-1/pages/2/thumbnail.webp",
+    );
   });
 
   it("creates application-stream instructions and deletes idempotently", async () => {

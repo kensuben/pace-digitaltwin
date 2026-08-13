@@ -1,5 +1,40 @@
 # Development Changelog
 
+## 2026-08-13 — Phase SP-1 PDF ingestion
+
+### Added
+
+- ADR-0005 chọn PDF.js Apache-2.0 và `@napi-rs/canvas` MIT, thay thế lựa chọn PyMuPDF/Python bị chặn license.
+- Upload PDF revision bất biến với MIME, magic bytes, 50 MiB limit, SHA-256 và rollback object khi database transaction thất bại.
+- PostgreSQL job claim dùng `FOR UPDATE SKIP LOCKED`; Node worker riêng render WebP preview/thumbnail, persist page dimensions và trạng thái job/document.
+- Drawing UI cho document creation, revision upload, job/error status, page previews và mapping page vào Floor; document chuyển READY khi mọi page đã map.
+- Asset streaming endpoint có content type, length, private cache, ETag và `nosniff`.
+- PDF worker Docker target/service, CI image build/publish/provenance và unit/E2E workflow upload → process → preview → map.
+
+### Decisions and limitations
+
+- Worker không OCR, không extract vector và không chạy PDF JavaScript/external resources; advanced extraction thuộc SP-6.
+- PostgreSQL queue phù hợp khối lượng hiện tại dưới 100 lượt; Redis vẫn deferred.
+- Filesystem ObjectStorage vẫn chỉ dành cho local/CI. Production cần S3-compatible adapter, malware-scanner integration và retention/backup policy trước khi nhận upload thật.
+- SP-1 tái sử dụng schema SP-0 nên không cần migration mới.
+
+## 2026-08-13 — Milestone M2 Network Topology
+
+### Added
+
+- `PhysicalLink`, link enums và `AuditLog`; composite foreign keys bắt buộc hai endpoint Port và CableRoute thuộc cùng Scenario.
+- Topology repository/service/API với read model, locked-scenario enforcement, port occupancy, endpoint/speed validation và transaction audit cho create/update/delete/move.
+- React Flow editor tại `/topology/[scenarioId]`: custom device/port nodes, persisted positions, port-first connection, link inspector, update/delete và read-only mode.
+- Device Detail hiển thị physical links và điều hướng trực tiếp đến topology scenario.
+- Unit tests cho scenario isolation, locked scenario, missing/cross-scenario port, occupied port, same-device link, speed compatibility và position persistence.
+
+### Decisions and limitations
+
+- Database là source of truth; React Flow chỉ giữ editor state tạm thời và ghi vị trí qua API rõ ràng.
+- LAG/VLAN vẫn thuộc M3; validation findings đầy đủ và model swap thuộc M4.
+- SP-1 là bước tích hợp kế tiếp nhưng vẫn blocked cho đến khi giải quyết license PDF processing trong ADR-0004.
+- Next 16.3 dùng TypeScript compiler API trong production build vì CLI `--showConfig` không trả JSON ổn định trên managed Node runtime hiện tại.
+
 ## 2026-08-11 — Phase SP-0 Spatial schema & storage
 
 ### Added
