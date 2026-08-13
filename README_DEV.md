@@ -44,7 +44,10 @@ Nếu PostgreSQL chạy bằng Docker, có thể chỉ bật database:
 docker compose up -d postgres
 ```
 
-Sau đó mở `http://localhost:3000`. Endpoint:
+Sau đó mở `http://localhost:3000`. `npm run dev` dùng Webpack HMR để đồng bộ
+với production build và tránh lỗi WebSocket của Turbopack trong một số môi
+trường local. Chỉ dùng `npm run dev:turbopack` khi cần thử riêng Turbopack.
+Endpoint:
 
 - `GET /api/health/live`: process đang chạy;
 - `GET /api/health/ready`: ứng dụng kết nối được PostgreSQL.
