@@ -129,6 +129,14 @@ export default async function DrawingPage({
                       floors={drawing.building.floors}
                       pageId={page.id}
                     />
+                    {page.floorId && (
+                      <a
+                        className="block text-sm font-semibold text-primary hover:underline"
+                        href={`/floors/${page.floorId}/map?scenarioId=scenario-proposed`}
+                      >
+                        Open 2D floor editor →
+                      </a>
+                    )}
                     <a
                       className="text-sm font-semibold text-primary hover:underline"
                       href={`/api/drawing-pages/${page.id}/asset`}

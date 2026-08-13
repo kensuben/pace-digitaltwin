@@ -31,6 +31,20 @@ export interface ProcessedPdfPage {
   thumbnailStorageKey: string;
 }
 
+export function toUnmappedDrawingPageRows(
+  job: ClaimedPdfJob,
+  pages: ProcessedPdfPage[],
+) {
+  return pages.map((page) => ({
+    ...page,
+    drawingDocumentId: job.drawingDocumentId,
+    drawingRevisionId: job.drawingRevisionId,
+    buildingId: null,
+    floorId: null,
+    status: "READY" as const,
+  }));
+}
+
 export interface PdfIngestionRepository {
   findUploadContext(documentId: string): Promise<{
     id: string;
@@ -173,13 +187,7 @@ export class PrismaPdfIngestionRepository implements PdfIngestionRepository {
         where: { drawingRevisionId: job.drawingRevisionId },
       });
       await tx.drawingPage.createMany({
-        data: pages.map((page) => ({
-          ...page,
-          drawingDocumentId: job.drawingDocumentId,
-          drawingRevisionId: job.drawingRevisionId,
-          buildingId: job.buildingId,
-          status: "READY" as const,
-        })),
+        data: toUnmappedDrawingPageRows(job, pages),
       });
       await tx.drawingRevision.update({
         where: {
@@ -226,8 +234,8 @@ export class PrismaPdfIngestionRepository implements PdfIngestionRepository {
     });
   }
 
-  findPage(pageId: string) {
-    return this.prisma.drawingPage.findUnique({
+  async findPage(pageId: string) {
+    const page = await this.prisma.drawingPage.findUnique({
       where: { id: pageId },
       select: {
         id: true,
@@ -235,8 +243,15 @@ export class PrismaPdfIngestionRepository implements PdfIngestionRepository {
         buildingId: true,
         previewStorageKey: true,
         thumbnailStorageKey: true,
+        drawingDocument: { select: { buildingId: true } },
       },
     });
+    if (!page) return null;
+    const { drawingDocument, ...data } = page;
+    return {
+      ...data,
+      buildingId: data.buildingId ?? drawingDocument.buildingId,
+    };
   }
 
   async mapPageToFloor(pageId: string, buildingId: string, floorId: string) {

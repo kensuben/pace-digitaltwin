@@ -4,7 +4,9 @@ import {
   applyAffineTransform,
   calculateMetersPerPdfPoint,
   createPdfToFloorTransform,
+  floorToScreen,
   invertAffineTransform,
+  screenToFloor,
 } from "@/domain/spatial/coordinates";
 
 describe("spatial coordinates", () => {
@@ -74,5 +76,27 @@ describe("spatial coordinates", () => {
     expect(() =>
       invertAffineTransform({ a: 1, b: 2, c: 2, d: 4, e: 0, f: 0 }),
     ).toThrow("not invertible");
+  });
+
+  it.each([
+    [{ zoom: 1, panX: 0, panY: 0, rotationDegrees: 0 }],
+    [{ zoom: 4, panX: 120, panY: -40, rotationDegrees: 0 }],
+    [{ zoom: 2.5, panX: 300, panY: 80, rotationDegrees: 90 }],
+    [{ zoom: 0.5, panX: -20, panY: 15, rotationDegrees: 37 }],
+  ])("round-trips floor and screen coordinates at viewport %j", (viewport) => {
+    const floor = { x: 12.25, y: -4.5 };
+    const screen = floorToScreen(floor, viewport);
+    const restored = screenToFloor(screen, viewport);
+    expect(restored.x).toBeCloseTo(floor.x);
+    expect(restored.y).toBeCloseTo(floor.y);
+  });
+
+  it("rejects non-positive screen zoom", () => {
+    expect(() =>
+      floorToScreen({ x: 0, y: 0 }, { zoom: 0, panX: 0, panY: 0 }),
+    ).toThrow("greater than zero");
+    expect(() =>
+      screenToFloor({ x: 0, y: 0 }, { zoom: -1, panX: 0, panY: 0 }),
+    ).toThrow("greater than zero");
   });
 });

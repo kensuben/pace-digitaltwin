@@ -18,6 +18,13 @@ export interface ScaleCalibrationInput {
   realDistanceMeters: number;
 }
 
+export interface ScreenViewport {
+  zoom: number;
+  panX: number;
+  panY: number;
+  rotationDegrees?: number;
+}
+
 function assertFinite(value: number, label: string) {
   if (!Number.isFinite(value)) throw new Error(`${label} must be finite.`);
 }
@@ -105,5 +112,48 @@ export function createPdfToFloorTransform(
     d: cosine,
     e: floorOriginMeters.x - cosine * pdfOrigin.x + sine * pdfOrigin.y,
     f: floorOriginMeters.y - sine * pdfOrigin.x - cosine * pdfOrigin.y,
+  };
+}
+
+export function floorToScreen(
+  pointMeters: Point2D,
+  viewport: ScreenViewport,
+): Point2D {
+  assertPoint(pointMeters, "pointMeters");
+  assertFinite(viewport.zoom, "viewport.zoom");
+  assertFinite(viewport.panX, "viewport.panX");
+  assertFinite(viewport.panY, "viewport.panY");
+  const rotation = viewport.rotationDegrees ?? 0;
+  assertFinite(rotation, "viewport.rotationDegrees");
+  if (viewport.zoom <= 0)
+    throw new Error("viewport.zoom must be greater than zero.");
+  const radians = (rotation * Math.PI) / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  return {
+    x:
+      viewport.panX +
+      viewport.zoom * (cosine * pointMeters.x - sine * pointMeters.y),
+    y:
+      viewport.panY +
+      viewport.zoom * (sine * pointMeters.x + cosine * pointMeters.y),
+  };
+}
+
+export function screenToFloor(
+  point: Point2D,
+  viewport: ScreenViewport,
+): Point2D {
+  assertPoint(point, "point");
+  if (!Number.isFinite(viewport.zoom) || viewport.zoom <= 0)
+    throw new Error("viewport.zoom must be greater than zero.");
+  const rotation = viewport.rotationDegrees ?? 0;
+  assertFinite(rotation, "viewport.rotationDegrees");
+  const x = (point.x - viewport.panX) / viewport.zoom;
+  const y = (point.y - viewport.panY) / viewport.zoom;
+  const radians = (-rotation * Math.PI) / 180;
+  return {
+    x: Math.cos(radians) * x - Math.sin(radians) * y,
+    y: Math.sin(radians) * x + Math.cos(radians) * y,
   };
 }

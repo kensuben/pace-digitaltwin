@@ -11,8 +11,8 @@ This roadmap resolves the dependency order between SOP-SC181-001 network phases 
 | 4 | M2 Network topology | Done | Port-first links and persisted editor pass |
 | 5 | SP-1 PDF ingestion | Done | Isolated worker, previews, jobs and floor mapping pass |
 | 6 | M3 LAG/VLAN/IP | Done | Network logical configuration and validation pass |
-| 7 | SP-2 2D floor editor | Ready | Calibration and placement persistence in meters pass |
-| 8 | M4 Model swap & validation | Pending | Preview/commit and network/spatial findings pass |
+| 7 | SP-2 2D floor editor | Done | Calibration and placement persistence in meters pass |
+| 8 | M4 Model swap & validation | Ready | Preview/commit and network/spatial findings pass |
 | 9 | SP-3 Zones/cabling/risers | Pending | Manual geometry and multi-floor cable routes pass |
 | 10 | M5 Scenario/simulation | Pending | Clone/compare/failure simulation pass |
 | 11 | SP-4/SP-5 GLB and sync | Pending | 3D floor isolation and 2D/3D selection sync pass |

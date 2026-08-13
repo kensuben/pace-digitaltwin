@@ -66,6 +66,12 @@ export default async function DevicePage({
           <Button disabled title="Model Swap thuộc M4">
             Change Model — M4
           </Button>
+          <Link
+            className="rounded-md border px-4 py-2 font-semibold text-primary hover:bg-accent"
+            href={`/floors/${device.floorId}/map?scenarioId=${scenarioId}`}
+          >
+            Locate on 2D map →
+          </Link>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
