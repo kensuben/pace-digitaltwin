@@ -5,6 +5,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "PACE Smart Campus Digital Twin",
   description: "Network digital twin for PACE Smart Campus 181 Cô Giang",
+  icons: { icon: "/favicon.ico" },
 };
 
 export default function RootLayout({
