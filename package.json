@@ -26,7 +26,7 @@
     "worker:pdf:once": "tsx src/workers/pdfWorker.ts --once"
   },
   "dependencies": {
-    "@napi-rs/canvas": "0.1.80",
+    "@napi-rs/canvas": "0.1.100",
     "@prisma/adapter-pg": "7.9.1",
     "@prisma/client": "7.9.1",
     "@xyflow/react": "12.10.0",

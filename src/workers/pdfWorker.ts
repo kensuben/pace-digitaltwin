@@ -20,6 +20,7 @@ async function runOne() {
     const code = message.startsWith("PDF_") ? message : "PDF_PROCESSING_FAILED";
     await repository.failJob(job.id, code, message);
     console.error(`PDF job ${job.id} failed: ${message}`);
+    if (once) throw error;
   }
   return true;
 }
