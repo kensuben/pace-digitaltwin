@@ -12,6 +12,7 @@ import {
   getInventoryOptions,
   listInventory,
 } from "@/server/services/inventoryService";
+import { getProjectCostSummary } from "@/server/services/projectCostService";
 
 export const dynamic = "force-dynamic";
 
@@ -27,9 +28,10 @@ export default async function TopologyPage(props: {
     throw error;
   }
   if (!topology.scenario) notFound();
-  const [options, inventoryDevices] = await Promise.all([
+  const [options, inventoryDevices, costSummary] = await Promise.all([
     getInventoryOptions(),
     listInventory({}),
+    getProjectCostSummary(scenarioId),
   ]);
   const { models } = options;
   const connectedPorts = new Set(
@@ -39,6 +41,9 @@ export default async function TopologyPage(props: {
     id: device.id,
     graphX: device.graphX,
     graphY: device.graphY,
+    unitPriceVnd: device.unitPriceOverrideVnd ?? device.model.unitPriceVnd,
+    priceVatRateBps:
+      device.priceVatRateOverrideBps ?? device.model.priceVatRateBps,
     data: {
       hostname: device.hostname,
       model: `${device.model.vendor.name} ${device.model.modelName}`,
@@ -104,6 +109,9 @@ export default async function TopologyPage(props: {
               floorId: device.floorId,
               floorCode: device.floor.code,
             }))}
+          fixedCostVnd={costSummary.lines
+            .filter((line) => line.kind === "FIXED")
+            .reduce((sum, line) => sum + line.totalVnd, 0)}
         />
       </div>
     </AppShell>

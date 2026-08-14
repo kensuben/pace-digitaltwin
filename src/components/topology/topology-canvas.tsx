@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useMemo,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -11,6 +12,7 @@ import {
   ChevronRight,
   Cpu,
   Layers3,
+  Maximize2,
   Monitor,
   Move,
   Network,
@@ -20,6 +22,8 @@ import {
   Sparkles,
   Trash2,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { DeviceNodeData } from "@/components/topology/device-node";
@@ -41,6 +45,8 @@ interface Device {
   id: string;
   graphX: number;
   graphY: number;
+  unitPriceVnd: number | null;
+  priceVatRateBps: number;
   data: DeviceNodeData;
 }
 interface ModelOption {
@@ -71,9 +77,17 @@ interface CreatedDevice {
   id: string;
   hostname: string;
   displayName: string;
+  unitPriceOverrideVnd: number | null;
+  priceVatRateOverrideBps: number | null;
   building: { id: string; code: string };
   floor: { id: string; code: string; name: string; level: number };
-  model: { category: string; modelName: string; vendor: { name: string } };
+  model: {
+    category: string;
+    modelName: string;
+    unitPriceVnd: number | null;
+    priceVatRateBps: number;
+    vendor: { name: string };
+  };
   ports: Array<{
     id: string;
     name: string;
@@ -120,6 +134,7 @@ export function TopologyCanvas({
   models,
   availableFloors,
   availableInventoryDevices,
+  fixedCostVnd,
 }: {
   scenario: { id: string; name: string; isLocked: boolean };
   devices: Device[];
@@ -127,6 +142,7 @@ export function TopologyCanvas({
   models: ModelOption[];
   availableFloors: FloorOption[];
   availableInventoryDevices: AvailableInventoryDevice[];
+  fixedCostVnd: number;
 }) {
   const [devices, setDevices] = useState(initialDevices);
   const [links, setLinks] = useState(initialLinks);
@@ -161,6 +177,24 @@ export function TopologyCanvas({
   const [bulkCount, setBulkCount] = useState(1);
   const [existingInventoryDeviceId, setExistingInventoryDeviceId] =
     useState("");
+  const categorySummary = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const device of devices)
+      counts.set(
+        device.data.category,
+        (counts.get(device.data.category) ?? 0) + 1,
+      );
+    return [...counts.entries()].sort((left, right) => right[1] - left[1]);
+  }, [devices]);
+  const pricedDeviceCount = devices.filter(
+    (device) => device.unitPriceVnd !== null,
+  ).length;
+  const deviceCostVnd = devices.reduce(
+    (sum, device) =>
+      sum + (device.unitPriceVnd ?? 0) * (1 + device.priceVatRateBps / 10_000),
+    0,
+  );
+  const totalCostVnd = Math.round(deviceCostVnd + fixedCostVnd);
   const serverDevices = devices.filter(
     (device) => device.data.floorId === serverFloor?.id,
   );
@@ -664,6 +698,9 @@ export function TopologyCanvas({
       id: created.id,
       graphX: 0,
       graphY: 0,
+      unitPriceVnd: created.unitPriceOverrideVnd ?? created.model.unitPriceVnd,
+      priceVatRateBps:
+        created.priceVatRateOverrideBps ?? created.model.priceVatRateBps,
       data: {
         hostname: created.hostname,
         model: `${created.model.vendor.name} ${created.model.modelName}`,
@@ -839,6 +876,12 @@ export function TopologyCanvas({
 
   return (
     <div className="space-y-5">
+      <TopologySummary
+        categories={categorySummary}
+        deviceCount={devices.length}
+        pricedDeviceCount={pricedDeviceCount}
+        totalCostVnd={totalCostVnd}
+      />
       <div className="flex flex-col gap-3 rounded-2xl border bg-card/90 p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
@@ -1416,6 +1459,81 @@ export function TopologyCanvas({
   );
 }
 
+const categoryLabels: Record<string, string> = {
+  ACCESS_SWITCH: "Access Switch",
+  AP: "Wi-Fi AP",
+  CAMERA: "Camera",
+  CORE_SWITCH: "Core Switch",
+  DESKTOP_LAPTOP: "Desktop/Laptop",
+  DISTRIBUTION_SWITCH: "Layer Switch",
+  FIREWALL: "Firewall",
+  PRINTER: "Máy in",
+  SERVER: "Server",
+};
+
+function TopologySummary({
+  categories,
+  deviceCount,
+  pricedDeviceCount,
+  totalCostVnd,
+}: {
+  categories: Array<[string, number]>;
+  deviceCount: number;
+  pricedDeviceCount: number;
+  totalCostVnd: number;
+}) {
+  return (
+    <section className="grid gap-3 lg:grid-cols-[0.7fr_1.8fr_1fr]">
+      <div className="rounded-2xl border bg-gradient-to-br from-primary/15 to-card p-4 shadow-sm">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
+          <Network size={16} /> Thiết bị
+        </div>
+        <p className="mt-3 text-3xl font-bold">{deviceCount}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {categories.length} nhóm category
+        </p>
+      </div>
+
+      <div className="rounded-2xl border bg-card p-4 shadow-sm">
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
+          Cơ cấu thiết bị sử dụng
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {categories.map(([category, count]) => (
+            <div
+              className="flex items-center gap-2 rounded-xl border bg-background/60 px-3 py-2"
+              key={category}
+            >
+              <span className="text-sm text-muted-foreground">
+                {categoryLabels[category] ?? category.replaceAll("_", " ")}
+              </span>
+              <strong className="grid h-6 min-w-6 place-items-center rounded-lg bg-primary/15 px-1.5 text-xs text-primary">
+                {count}
+              </strong>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-card to-primary/10 p-4 shadow-sm">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
+          <Cpu size={16} className="text-primary" /> Tổng chi phí
+        </div>
+        <p className="mt-3 text-2xl font-bold text-primary">
+          {new Intl.NumberFormat("vi-VN", {
+            style: "currency",
+            currency: "VND",
+            maximumFractionDigits: 0,
+          }).format(totalCostVnd)}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Đã có giá {pricedDeviceCount}/{deviceCount} thiết bị · gồm VAT
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function FloorPanel({
   title,
   subtitle,
@@ -1653,6 +1771,8 @@ function OrganizationTopology({
         graphY: hasSavedPosition
           ? group.reduce((sum, device) => sum + device.graphY, 0) / group.length
           : 0,
+        unitPriceVnd: null,
+        priceVatRateBps: 0,
         data: {
           ...group[0].data,
           hostname:
@@ -1773,6 +1893,16 @@ function OrganizationTopology({
   } | null>(null);
   const [saveMessage, setSaveMessage] = useState("");
   const [savingLayout, setSavingLayout] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [zoom, setZoom] = useState(0.8);
+  useEffect(() => {
+    if (!expanded) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [expanded]);
   const positions = new Map(autoPositions);
   for (const [id, position] of manualPositions) positions.set(id, position);
   function point(event: ReactPointerEvent<SVGForeignObjectElement>) {
@@ -1846,271 +1976,328 @@ function OrganizationTopology({
     }
   }
   return (
-    <div className="h-full overflow-hidden rounded-2xl border bg-background/30">
-      <div className="flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="font-bold">
-            Organization Topology · B2 → {floorLabel}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Kéo thiết bị để sắp xếp; vector tự bám theo vị trí mới.
-          </p>
+    <>
+      {expanded && (
+        <button
+          aria-label="Đóng chế độ xem toàn màn hình"
+          className="fixed inset-0 z-40 cursor-default bg-black/75 backdrop-blur-sm"
+          onClick={() => setExpanded(false)}
+        />
+      )}
+      <div
+        aria-modal={expanded || undefined}
+        className={`${expanded ? "fixed inset-3 z-50 flex h-[calc(100vh-1.5rem)] flex-col bg-card shadow-2xl" : "h-full bg-background/30"} overflow-hidden rounded-2xl border`}
+        role={expanded ? "dialog" : undefined}
+      >
+        <div className="border-b bg-card/95 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="truncate font-bold">
+                Organization Topology{" "}
+                <span className="text-primary">B2 → {floorLabel}</span>
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Kéo card để sắp xếp · Vector tự bám vị trí
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                aria-label="Thu nhỏ sơ đồ"
+                className="grid h-8 w-8 place-items-center rounded-lg border hover:bg-secondary disabled:opacity-40"
+                disabled={zoom <= 0.6}
+                onClick={() =>
+                  setZoom((current) => Math.max(0.6, current - 0.1))
+                }
+                title="Thu nhỏ"
+              >
+                <ZoomOut size={15} />
+              </button>
+              <button
+                className="h-8 min-w-12 rounded-lg border px-2 text-xs font-bold hover:bg-secondary"
+                onClick={() => setZoom(0.8)}
+                title="Đặt lại zoom mặc định 80%"
+              >
+                {Math.round(zoom * 100)}%
+              </button>
+              <button
+                aria-label="Phóng to sơ đồ"
+                className="grid h-8 w-8 place-items-center rounded-lg border hover:bg-secondary disabled:opacity-40"
+                disabled={zoom >= 1.5}
+                onClick={() =>
+                  setZoom((current) => Math.min(1.5, current + 0.1))
+                }
+                title="Phóng to"
+              >
+                <ZoomIn size={15} />
+              </button>
+              <button
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-bold hover:bg-secondary"
+                onClick={() => setExpanded((current) => !current)}
+              >
+                {expanded ? <X size={14} /> : <Maximize2 size={14} />}
+                {expanded ? "Đóng" : "Xem lớn"}
+              </button>
+              <button
+                className="inline-flex h-8 items-center gap-1 rounded-lg border px-2.5 text-xs hover:bg-secondary"
+                onClick={() => {
+                  setIgnoreSaved(true);
+                  setManualPositions(new Map());
+                  setSaveMessage("");
+                }}
+              >
+                <RotateCcw size={13} /> Reset
+              </button>
+              <button
+                className="inline-flex h-8 items-center gap-1 rounded-lg bg-primary px-2.5 text-xs font-bold text-primary-foreground disabled:opacity-50"
+                disabled={locked || savingLayout}
+                onClick={saveLayout}
+              >
+                <Save size={13} />
+                {savingLayout ? "Đang lưu" : "Lưu"}
+              </button>
+            </div>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-2">
+              <i className="h-0.5 w-5 bg-emerald-400" />
+              Uplink B2
+            </span>
+            <span className="flex items-center gap-2">
+              <i className="h-0.5 w-5 bg-blue-400" />
+              Local
+            </span>
+            <span className="flex items-center gap-2">
+              <i className="h-0.5 w-5 bg-amber-400" />
+              Shared tầng khác
+            </span>
+            <span className="flex items-center gap-2">
+              <i className="h-0.5 w-5 bg-violet-400" />
+              HA 2 chiều
+            </span>
+            {saveMessage && <span className="text-primary">{saveMessage}</span>}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          <span className="flex items-center gap-2">
-            <i className="h-0.5 w-6 bg-emerald-400" />
-            Uplink B2
-          </span>
-          <span className="flex items-center gap-2">
-            <i className="h-0.5 w-6 bg-blue-400" />
-            Local
-          </span>
-          <span className="flex items-center gap-2">
-            <i className="h-0.5 w-6 bg-amber-400" />
-            Shared tầng khác
-          </span>
-          <span className="flex items-center gap-2">
-            <i className="h-0.5 w-6 bg-violet-400" />
-            HA 2 chiều
-          </span>
-          <button
-            className="inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 hover:bg-secondary"
-            onClick={() => {
-              setIgnoreSaved(true);
-              setManualPositions(new Map());
-              setSaveMessage("");
+        <div className="min-h-0 flex-1 overflow-auto bg-[radial-gradient(circle_at_center,rgb(45_212_191/0.04),transparent_60%)]">
+          <svg
+            aria-label={`Sơ đồ kết nối B2 đến ${floorLabel}`}
+            className="max-w-none touch-none transition-[width] duration-200"
+            role="img"
+            style={{
+              minWidth: `${Math.round(900 * zoom)}px`,
+              width: `${Math.round(1100 * zoom)}px`,
             }}
+            viewBox={`0 0 1100 ${height}`}
           >
-            <RotateCcw size={13} />
-            Reset
-          </button>
-          <button
-            className="inline-flex items-center gap-1 rounded-lg bg-primary px-2 py-1.5 font-bold text-primary-foreground disabled:opacity-50"
-            disabled={locked || savingLayout}
-            onClick={saveLayout}
-          >
-            <Save size={13} />
-            {savingLayout ? "Đang lưu" : "Lưu sơ đồ"}
-          </button>
-          {saveMessage && <span className="text-primary">{saveMessage}</span>}
-        </div>
-      </div>
-      <div className="overflow-x-auto bg-[radial-gradient(circle_at_center,rgb(45_212_191/0.04),transparent_60%)]">
-        <svg
-          aria-label={`Sơ đồ kết nối B2 đến ${floorLabel}`}
-          className="min-w-[900px] touch-none"
-          role="img"
-          viewBox={`0 0 1100 ${height}`}
-        >
-          <defs>
-            <marker
-              id="arrow-local"
-              markerHeight="4"
-              markerWidth="4"
-              orient="auto"
-              refX="3.5"
-              refY="2"
-            >
-              <path d="M0,0 L4,2 L0,4 z" fill="#60a5fa" />
-            </marker>
-            <marker
-              id="arrow-uplink"
-              markerHeight="4"
-              markerWidth="4"
-              orient="auto"
-              refX="3.5"
-              refY="2"
-            >
-              <path d="M0,0 L4,2 L0,4 z" fill="#34d399" />
-            </marker>
-            <marker
-              id="arrow-shared"
-              markerHeight="4"
-              markerWidth="4"
-              orient="auto"
-              refX="3.5"
-              refY="2"
-            >
-              <path d="M0,0 L4,2 L0,4 z" fill="#fbbf24" />
-            </marker>
-            <marker
-              id="arrow-ha"
-              markerHeight="4"
-              markerWidth="4"
-              orient="auto-start-reverse"
-              refX="3.5"
-              refY="2"
-            >
-              <path d="M0,0 L4,2 L0,4 z" fill="#a78bfa" />
-            </marker>
-          </defs>
-          {visibleLinks.map((link) => {
-            const source = positions.get(link.sourceDeviceId);
-            const target = positions.get(link.targetDeviceId);
-            const a = visibleDevices.find(
-              (device) => device.id === link.sourceDeviceId,
-            );
-            const b = visibleDevices.find(
-              (device) => device.id === link.targetDeviceId,
-            );
-            if (!source || !target || !a || !b) return null;
-            const ha =
-              a.data.floorId === serverFloorId &&
-              b.data.floorId === serverFloorId &&
-              a.data.category === "CORE_SWITCH" &&
-              b.data.category === "CORE_SWITCH";
-            const local = a.data.floorId === b.data.floorId;
-            const speed =
-              link.speedMbps >= 1000
-                ? `${link.speedMbps / 1000} Gbps`
-                : `${link.speedMbps} Mbps`;
-            if (ha) {
-              const left = source.x <= target.x ? source : target;
-              const right = source.x <= target.x ? target : source;
-              const y = (left.y + right.y) / 2 + 29;
-              const labelX = right.x - 126;
+            <defs>
+              <marker
+                id="arrow-local"
+                markerHeight="4"
+                markerWidth="4"
+                orient="auto"
+                refX="3.5"
+                refY="2"
+              >
+                <path d="M0,0 L4,2 L0,4 z" fill="#60a5fa" />
+              </marker>
+              <marker
+                id="arrow-uplink"
+                markerHeight="4"
+                markerWidth="4"
+                orient="auto"
+                refX="3.5"
+                refY="2"
+              >
+                <path d="M0,0 L4,2 L0,4 z" fill="#34d399" />
+              </marker>
+              <marker
+                id="arrow-shared"
+                markerHeight="4"
+                markerWidth="4"
+                orient="auto"
+                refX="3.5"
+                refY="2"
+              >
+                <path d="M0,0 L4,2 L0,4 z" fill="#fbbf24" />
+              </marker>
+              <marker
+                id="arrow-ha"
+                markerHeight="4"
+                markerWidth="4"
+                orient="auto-start-reverse"
+                refX="3.5"
+                refY="2"
+              >
+                <path d="M0,0 L4,2 L0,4 z" fill="#a78bfa" />
+              </marker>
+            </defs>
+            {visibleLinks.map((link) => {
+              const source = positions.get(link.sourceDeviceId);
+              const target = positions.get(link.targetDeviceId);
+              const a = visibleDevices.find(
+                (device) => device.id === link.sourceDeviceId,
+              );
+              const b = visibleDevices.find(
+                (device) => device.id === link.targetDeviceId,
+              );
+              if (!source || !target || !a || !b) return null;
+              const ha =
+                a.data.floorId === serverFloorId &&
+                b.data.floorId === serverFloorId &&
+                a.data.category === "CORE_SWITCH" &&
+                b.data.category === "CORE_SWITCH";
+              const local = a.data.floorId === b.data.floorId;
+              const speed =
+                link.speedMbps >= 1000
+                  ? `${link.speedMbps / 1000} Gbps`
+                  : `${link.speedMbps} Mbps`;
+              if (ha) {
+                const left = source.x <= target.x ? source : target;
+                const right = source.x <= target.x ? target : source;
+                const y = (left.y + right.y) / 2 + 29;
+                const labelX = right.x - 126;
+                return (
+                  <g key={link.id}>
+                    <path
+                      d={`M ${left.x + 74} ${y} C ${(left.x + right.x) / 2} ${y - 28}, ${(left.x + right.x) / 2} ${y - 28}, ${right.x - 74} ${y}`}
+                      fill="none"
+                      markerEnd="url(#arrow-ha)"
+                      markerStart="url(#arrow-ha)"
+                      stroke="#a78bfa"
+                      strokeDasharray="8 5"
+                      strokeWidth="3"
+                    />
+                    <rect
+                      fill="#0f1d2a"
+                      height="22"
+                      rx="11"
+                      stroke="#a78bfa"
+                      strokeOpacity="0.65"
+                      width="104"
+                      x={labelX - 52}
+                      y={y - 36}
+                    />
+                    <text
+                      fill="#c4b5fd"
+                      fontSize="11"
+                      fontWeight="700"
+                      textAnchor="middle"
+                      x={labelX}
+                      y={y - 21}
+                    >
+                      HA · {speed}
+                    </text>
+                  </g>
+                );
+              }
+              const start = source.y <= target.y ? source : target;
+              const end = source.y <= target.y ? target : source;
+              const shared =
+                !local &&
+                ![a.data.floorId, b.data.floorId].includes(serverFloorId);
+              const color = local ? "#60a5fa" : shared ? "#fbbf24" : "#34d399";
+              const midY = (start.y + end.y) / 2;
+              // Keep the speed badge close to the destination arrow. The label
+              // follows the same cubic Bezier, so it remains attached when a
+              // user drags either device to a new position.
+              const labelT = 0.82;
+              const labelInverseT = 1 - labelT;
+              const labelX =
+                labelInverseT ** 3 * start.x +
+                3 * labelInverseT ** 2 * labelT * start.x +
+                3 * labelInverseT * labelT ** 2 * end.x +
+                labelT ** 3 * end.x;
+              const labelY =
+                labelInverseT ** 3 * (start.y + 58) +
+                3 * labelInverseT ** 2 * labelT * midY +
+                3 * labelInverseT * labelT ** 2 * midY +
+                labelT ** 3 * end.y -
+                14;
               return (
                 <g key={link.id}>
                   <path
-                    d={`M ${left.x + 74} ${y} C ${(left.x + right.x) / 2} ${y - 28}, ${(left.x + right.x) / 2} ${y - 28}, ${right.x - 74} ${y}`}
+                    d={`M ${start.x} ${start.y + 58} C ${start.x} ${midY}, ${end.x} ${midY}, ${end.x} ${end.y}`}
                     fill="none"
-                    markerEnd="url(#arrow-ha)"
-                    markerStart="url(#arrow-ha)"
-                    stroke="#a78bfa"
-                    strokeDasharray="8 5"
+                    markerEnd={`url(#${local ? "arrow-local" : shared ? "arrow-shared" : "arrow-uplink"})`}
+                    stroke={color}
                     strokeWidth="3"
                   />
                   <rect
                     fill="#0f1d2a"
                     height="22"
                     rx="11"
-                    stroke="#a78bfa"
-                    strokeOpacity="0.65"
-                    width="104"
-                    x={labelX - 52}
-                    y={y - 36}
+                    stroke={color}
+                    strokeOpacity="0.45"
+                    width={shared ? 112 : 72}
+                    x={labelX - (shared ? 56 : 36)}
+                    y={labelY - 11}
                   />
                   <text
-                    fill="#c4b5fd"
+                    fill={color}
                     fontSize="11"
                     fontWeight="700"
                     textAnchor="middle"
                     x={labelX}
-                    y={y - 21}
+                    y={labelY + 4}
                   >
-                    HA · {speed}
+                    {shared ? `SHARED · ${speed}` : speed}
                   </text>
                 </g>
               );
-            }
-            const start = source.y <= target.y ? source : target;
-            const end = source.y <= target.y ? target : source;
-            const shared =
-              !local &&
-              ![a.data.floorId, b.data.floorId].includes(serverFloorId);
-            const color = local ? "#60a5fa" : shared ? "#fbbf24" : "#34d399";
-            const midY = (start.y + end.y) / 2;
-            // Keep the speed badge close to the destination arrow. The label
-            // follows the same cubic Bezier, so it remains attached when a
-            // user drags either device to a new position.
-            const labelT = 0.82;
-            const labelInverseT = 1 - labelT;
-            const labelX =
-              labelInverseT ** 3 * start.x +
-              3 * labelInverseT ** 2 * labelT * start.x +
-              3 * labelInverseT * labelT ** 2 * end.x +
-              labelT ** 3 * end.x;
-            const labelY =
-              labelInverseT ** 3 * (start.y + 58) +
-              3 * labelInverseT ** 2 * labelT * midY +
-              3 * labelInverseT * labelT ** 2 * midY +
-              labelT ** 3 * end.y -
-              14;
-            return (
-              <g key={link.id}>
-                <path
-                  d={`M ${start.x} ${start.y + 58} C ${start.x} ${midY}, ${end.x} ${midY}, ${end.x} ${end.y}`}
-                  fill="none"
-                  markerEnd={`url(#${local ? "arrow-local" : shared ? "arrow-shared" : "arrow-uplink"})`}
-                  stroke={color}
-                  strokeWidth="3"
-                />
-                <rect
-                  fill="#0f1d2a"
-                  height="22"
-                  rx="11"
-                  stroke={color}
-                  strokeOpacity="0.45"
-                  width={shared ? 112 : 72}
-                  x={labelX - (shared ? 56 : 36)}
-                  y={labelY - 11}
-                />
-                <text
-                  fill={color}
-                  fontSize="11"
-                  fontWeight="700"
-                  textAnchor="middle"
-                  x={labelX}
-                  y={labelY + 4}
+            })}
+            {visibleDevices.map((device) => {
+              const position = positions.get(device.id)!;
+              const level = depth.get(device.id) ?? 0;
+              const connected = (adjacency.get(device.id)?.size ?? 0) > 0;
+              const isEndpointGroup = endpointGroupIds.has(device.id);
+              return (
+                <foreignObject
+                  className="cursor-move"
+                  height="61"
+                  key={device.id}
+                  onPointerDown={(event) => startDrag(event, device.id)}
+                  onPointerMove={moveDrag}
+                  onPointerUp={() => setDrag(null)}
+                  width="136"
+                  x={position.x - 68}
+                  y={position.y}
                 >
-                  {shared ? `SHARED · ${speed}` : speed}
-                </text>
-              </g>
-            );
-          })}
-          {visibleDevices.map((device) => {
-            const position = positions.get(device.id)!;
-            const level = depth.get(device.id) ?? 0;
-            const connected = (adjacency.get(device.id)?.size ?? 0) > 0;
-            const isEndpointGroup = endpointGroupIds.has(device.id);
-            return (
-              <foreignObject
-                className="cursor-move"
-                height="61"
-                key={device.id}
-                onPointerDown={(event) => startDrag(event, device.id)}
-                onPointerMove={moveDrag}
-                onPointerUp={() => setDrag(null)}
-                width="136"
-                x={position.x - 68}
-                y={position.y}
-              >
-                <div
-                  className={`relative h-[58px] select-none rounded-lg border-2 bg-[#0b1722] px-2.5 py-1.5 shadow-xl ${connected ? (level === 0 ? "border-emerald-400/70" : "border-blue-400/70") : "border-slate-600"}`}
-                >
-                  <Move
-                    className="absolute bottom-1.5 right-1.5 text-slate-600"
-                    size={10}
-                  />
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      {isEndpointGroup && (
-                        <Monitor className="text-cyan-300" size={11} />
-                      )}
-                      <b className="max-w-[105px] truncate text-[11px] text-white">
-                        {device.data.hostname}
-                      </b>
-                    </span>
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${connected ? (level === 0 ? "bg-emerald-400" : "bg-blue-400") : "bg-slate-500"}`}
+                  <div
+                    className={`relative h-[58px] select-none rounded-lg border-2 bg-[#0b1722] px-2.5 py-1.5 shadow-xl ${connected ? (level === 0 ? "border-emerald-400/70" : "border-blue-400/70") : "border-slate-600"}`}
+                  >
+                    <Move
+                      className="absolute bottom-1.5 right-1.5 text-slate-600"
+                      size={10}
                     />
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        {isEndpointGroup && (
+                          <Monitor className="text-cyan-300" size={11} />
+                        )}
+                        <b className="max-w-[105px] truncate text-[11px] text-white">
+                          {device.data.hostname}
+                        </b>
+                      </span>
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${connected ? (level === 0 ? "bg-emerald-400" : "bg-blue-400") : "bg-slate-500"}`}
+                      />
+                    </div>
+                    <p className="mt-0.5 max-w-[112px] truncate text-[8px] text-slate-400">
+                      {device.data.model}
+                    </p>
+                    <p className="mt-0.5 text-[7px] font-bold uppercase tracking-wide text-slate-500">
+                      {isEndpointGroup
+                        ? `${String(device.data.nodeCount ?? 0)} NODE`
+                        : level === 0
+                          ? "B2 · Server Room"
+                          : `${device.data.floorCode} · ${device.data.category.replaceAll("_", " ")}`}
+                    </p>
                   </div>
-                  <p className="mt-0.5 max-w-[112px] truncate text-[8px] text-slate-400">
-                    {device.data.model}
-                  </p>
-                  <p className="mt-0.5 text-[7px] font-bold uppercase tracking-wide text-slate-500">
-                    {isEndpointGroup
-                      ? `${String(device.data.nodeCount ?? 0)} NODE`
-                      : level === 0
-                        ? "B2 · Server Room"
-                        : `${device.data.floorCode} · ${device.data.category.replaceAll("_", " ")}`}
-                  </p>
-                </div>
-              </foreignObject>
-            );
-          })}
-        </svg>
+                </foreignObject>
+              );
+            })}
+          </svg>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

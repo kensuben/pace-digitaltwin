@@ -174,6 +174,29 @@ export default async function DevicePage({
                     {device.assetTag ?? "—"} / {device.serialNumber ?? "—"}
                   </dd>
                 </div>
+                <div>
+                  <dt className="text-muted-foreground">Đơn giá hiệu lực</dt>
+                  <dd>
+                    {(device.unitPriceOverrideVnd ??
+                      device.model.unitPriceVnd) === null
+                      ? "Chưa có giá"
+                      : `${new Intl.NumberFormat("vi-VN").format(device.unitPriceOverrideVnd ?? device.model.unitPriceVnd ?? 0)} ₫`}
+                    {device.unitPriceOverrideVnd !== null
+                      ? " · Giá riêng"
+                      : " · Giá model"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">VAT / Nguồn giá</dt>
+                  <dd>
+                    {(device.priceVatRateOverrideBps ??
+                      device.model.priceVatRateBps) / 100}
+                    % /{" "}
+                    {device.pricingSourceOverride ??
+                      device.model.pricingSource ??
+                      "—"}
+                  </dd>
+                </div>
               </dl>
             </CardContent>
           </Card>
@@ -188,6 +211,12 @@ export default async function DevicePage({
                 currentDisplayName={device.displayName}
                 currentLocationKey={currentLocationKey}
                 currentRackUnit={device.rackUnitStart}
+                modelUnitPriceVnd={device.model.unitPriceVnd}
+                modelVatRateBps={device.model.priceVatRateBps}
+                modelPricingSource={device.model.pricingSource}
+                currentUnitPriceOverrideVnd={device.unitPriceOverrideVnd}
+                currentVatRateOverrideBps={device.priceVatRateOverrideBps}
+                currentPricingSourceOverride={device.pricingSourceOverride}
                 deviceId={device.id}
                 locked={device.scenario.isLocked}
                 scenarioId={device.scenarioId}

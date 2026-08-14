@@ -54,6 +54,15 @@ export const updateDeviceSchema = z
     zoneId: z.string().min(1).optional().nullable(),
     rackId: z.string().min(1).optional().nullable(),
     rackUnitStart: z.number().int().positive().optional().nullable(),
+    unitPriceOverrideVnd: z.number().int().nonnegative().optional().nullable(),
+    priceVatRateOverrideBps: z
+      .number()
+      .int()
+      .min(0)
+      .max(10_000)
+      .optional()
+      .nullable(),
+    pricingSourceOverride: nullableTrimmed,
     notes: nullableTrimmed,
   })
   .refine(
@@ -155,14 +164,22 @@ export async function updateInventoryDevice(
     );
   }
   const fields = Object.keys(parsed.data);
-  const identityOnly =
+  const metadataOnly =
     fields.length > 0 &&
-    fields.every((field) => field === "hostname" || field === "displayName");
+    fields.every((field) =>
+      [
+        "hostname",
+        "displayName",
+        "unitPriceOverrideVnd",
+        "priceVatRateOverrideBps",
+        "pricingSourceOverride",
+      ].includes(field),
+    );
   const current = await assertScenarioMutable(
     scenarioId,
     deviceId,
     repository,
-    identityOnly,
+    metadataOnly,
   );
   const locationFields = ["buildingId", "floorId", "zoneId", "rackId"];
   const changesLocation = fields.some((field) =>

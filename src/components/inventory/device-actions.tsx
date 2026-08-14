@@ -15,6 +15,12 @@ interface DeviceActionsProps {
   currentDisplayName: string;
   currentLocationKey: string;
   currentRackUnit: number | null;
+  modelUnitPriceVnd: number | null;
+  modelVatRateBps: number;
+  modelPricingSource: string | null;
+  currentUnitPriceOverrideVnd: number | null;
+  currentVatRateOverrideBps: number | null;
+  currentPricingSourceOverride: string | null;
   locations: LocationOption[];
 }
 
@@ -27,6 +33,12 @@ export function DeviceActions({
   currentDisplayName,
   currentLocationKey,
   currentRackUnit,
+  modelUnitPriceVnd,
+  modelVatRateBps,
+  modelPricingSource,
+  currentUnitPriceOverrideVnd,
+  currentVatRateOverrideBps,
+  currentPricingSourceOverride,
   locations,
 }: DeviceActionsProps) {
   const router = useRouter();
@@ -36,6 +48,17 @@ export function DeviceActions({
   const [saving, setSaving] = useState(false);
   const [locationKey, setLocationKey] = useState(currentLocationKey);
   const [rackUnit, setRackUnit] = useState(currentRackUnit?.toString() ?? "");
+  const [unitPrice, setUnitPrice] = useState(
+    currentUnitPriceOverrideVnd?.toString() ?? "",
+  );
+  const [vatPercent, setVatPercent] = useState(
+    currentVatRateOverrideBps === null
+      ? ""
+      : (currentVatRateOverrideBps / 100).toString(),
+  );
+  const [pricingSource, setPricingSource] = useState(
+    currentPricingSourceOverride ?? "",
+  );
 
   async function patchDevice(data: Record<string, unknown>) {
     const response = await fetch(
@@ -109,6 +132,32 @@ export function DeviceActions({
     }
   }
 
+  async function updatePrice(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setMessage("");
+    try {
+      await patchDevice({
+        unitPriceOverrideVnd: unitPrice === "" ? null : Number(unitPrice),
+        priceVatRateOverrideBps:
+          vatPercent === "" ? null : Math.round(Number(vatPercent) * 100),
+        pricingSourceOverride: pricingSource.trim() || null,
+      });
+      setMessage(
+        unitPrice === ""
+          ? "Đã khôi phục giá chuẩn theo model."
+          : "Đã cập nhật giá riêng cho thiết bị.",
+      );
+      router.refresh();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Không thể cập nhật giá.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function deleteDevice() {
     if (!window.confirm("Xóa device này khỏi scenario?")) return;
     const response = await fetch(
@@ -156,6 +205,60 @@ export function DeviceActions({
           {saving ? "Đang lưu…" : "Lưu tên thiết bị"}
         </Button>
       </form>
+      <form className="space-y-3 border-t pt-4" onSubmit={updatePrice}>
+        <div>
+          <p className="text-sm font-bold">Giá thiết bị</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Giá model:{" "}
+            {modelUnitPriceVnd === null
+              ? "Chưa có"
+              : `${modelUnitPriceVnd.toLocaleString("vi-VN")} ₫`}{" "}
+            · VAT {modelVatRateBps / 100}%
+            {modelPricingSource ? ` · ${modelPricingSource}` : ""}
+          </p>
+        </div>
+        <label className="grid gap-1 text-sm">
+          Đơn giá riêng (VND)
+          <input
+            className="rounded-md border bg-background p-2"
+            min="0"
+            onChange={(event) => setUnitPrice(event.target.value)}
+            placeholder="Để trống để dùng giá model"
+            step="1000"
+            type="number"
+            value={unitPrice}
+          />
+        </label>
+        <label className="grid gap-1 text-sm">
+          VAT riêng (%)
+          <input
+            className="rounded-md border bg-background p-2"
+            max="100"
+            min="0"
+            onChange={(event) => setVatPercent(event.target.value)}
+            placeholder={`${modelVatRateBps / 100}`}
+            step="0.01"
+            type="number"
+            value={vatPercent}
+          />
+        </label>
+        <label className="grid gap-1 text-sm">
+          Nguồn báo giá
+          <input
+            className="rounded-md border bg-background p-2"
+            maxLength={500}
+            onChange={(event) => setPricingSource(event.target.value)}
+            placeholder="Tên báo giá, nhà cung cấp…"
+            value={pricingSource}
+          />
+        </label>
+        <Button disabled={saving} type="submit">
+          {saving ? "Đang lưu…" : "Lưu giá thiết bị"}
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Xóa đơn giá riêng rồi lưu để quay lại giá mặc định của model.
+        </p>
+      </form>
       {!locked && (
         <form className="space-y-3 border-t pt-4" onSubmit={updateLocation}>
           <p className="text-sm font-bold">Location</p>
@@ -195,7 +298,7 @@ export function DeviceActions({
       )}
       {locked ? (
         <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
-          Baseline đang khóa: chỉ cho phép chỉnh Hostname và Display name; các
+          Baseline đang khóa: chỉ cho phép chỉnh tên và thông tin giá; các
           mutation kỹ thuật vẫn bị vô hiệu hóa.
         </div>
       ) : (

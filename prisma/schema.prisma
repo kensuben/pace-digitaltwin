@@ -546,6 +546,9 @@ model DeviceInstance {
   zoneId        String?
   rackId        String?
   rackUnitStart Int?
+  unitPriceOverrideVnd    Int?
+  priceVatRateOverrideBps Int?
+  pricingSourceOverride   String?
   notes         String?
   graphX        Float             @default(0)
   graphY        Float             @default(0)

@@ -9,6 +9,9 @@ type CostData = {
   name: string;
   type: string;
   devices: Array<{
+    unitPriceOverrideVnd: number | null;
+    priceVatRateOverrideBps: number | null;
+    pricingSourceOverride: string | null;
     model: {
       id: string;
       sku: string;
@@ -59,10 +62,18 @@ export async function getProjectCostSummary(
     string,
     CostData["devices"][number]["model"] & { quantity: number }
   >();
-  for (const { model } of data.devices) {
-    const current = modelGroups.get(model.id);
+  for (const device of data.devices) {
+    const model = {
+      ...device.model,
+      unitPriceVnd: device.unitPriceOverrideVnd ?? device.model.unitPriceVnd,
+      priceVatRateBps:
+        device.priceVatRateOverrideBps ?? device.model.priceVatRateBps,
+      pricingSource: device.pricingSourceOverride ?? device.model.pricingSource,
+    };
+    const priceKey = `${model.id}:${model.unitPriceVnd ?? "none"}:${model.priceVatRateBps}:${model.pricingSource ?? ""}`;
+    const current = modelGroups.get(priceKey);
     if (current) current.quantity += 1;
-    else modelGroups.set(model.id, { ...model, quantity: 1 });
+    else modelGroups.set(priceKey, { ...model, quantity: 1 });
   }
 
   const deviceLines = [...modelGroups.values()].map((model) => ({
@@ -103,10 +114,12 @@ export async function getProjectCostSummary(
     currency: "VND",
     deviceCount: data.devices.length,
     pricedDeviceCount: data.devices.filter(
-      ({ model }) => model.unitPriceVnd !== null,
+      (device) =>
+        (device.unitPriceOverrideVnd ?? device.model.unitPriceVnd) !== null,
     ).length,
     unpricedDeviceCount: data.devices.filter(
-      ({ model }) => model.unitPriceVnd === null,
+      (device) =>
+        (device.unitPriceOverrideVnd ?? device.model.unitPriceVnd) === null,
     ).length,
     subtotalVnd,
     vatVnd,
