@@ -10,10 +10,12 @@ import {
   DrawingDocumentType,
   FloorMapSourceType,
   PrismaClient,
+  ProjectCostCategory,
   ScenarioType,
   SpecStatus,
   ZoneType,
 } from "../src/generated/prisma/client";
+import { netgearDemoDevices, quoteModels } from "./quote-demo-data";
 
 const connectionString =
   process.env.DATABASE_URL ??
@@ -24,7 +26,7 @@ const prisma = new PrismaClient({
 
 const verifiedAt = new Date("2026-08-11T00:00:00.000Z");
 
-interface SeedModel {
+export interface SeedModel {
   id: string;
   vendorCode: string;
   category: (typeof DeviceCategory)[keyof typeof DeviceCategory];
@@ -32,7 +34,7 @@ interface SeedModel {
   modelName: string;
   sourceUrl: string;
   formFactor: string;
-  rackUnits: number;
+  rackUnits: number | null;
   switchingCapacityGbps?: number;
   firewallGbps?: number;
   ipsGbps?: number;
@@ -44,7 +46,12 @@ interface SeedModel {
   supportsHa?: boolean;
   managementOs: string;
   metadataJson: Record<string, string | number | boolean>;
+  unitPriceVnd?: number;
+  priceVatRateBps?: number;
+  pricingSource?: string;
+  quotedAt?: Date;
   profiles: PortProfileDefinition[];
+  specStatus?: (typeof SpecStatus)[keyof typeof SpecStatus];
 }
 
 const vendors = [
@@ -78,9 +85,37 @@ const vendors = [
     name: "MikroTik",
     website: "https://mikrotik.com",
   },
+  {
+    id: "vendor-maipu",
+    code: "MAIPU",
+    name: "Maipu",
+    website: "https://www.maipu.com",
+  },
+  {
+    id: "vendor-ubiquiti",
+    code: "UBIQUITI",
+    name: "Ubiquiti",
+    website: "https://ui.com",
+  },
+  { id: "vendor-hikvision", code: "HIKVISION", name: "HIKVISION", website: "https://www.hikvision.com" },
+  { id: "vendor-generic", code: "GENERIC", name: "Generic Endpoint", website: "https://pace.edu.vn" },
 ] as const;
 
 const models: SeedModel[] = [
+  {
+    id: "model-generic-desktop-laptop", vendorCode: "GENERIC", category: DeviceCategory.DESKTOP_LAPTOP,
+    sku: "ENDPOINT-DESKTOP-LAPTOP", modelName: "Desktop / Laptop network node", sourceUrl: "user-defined",
+    formFactor: "Endpoint", rackUnits: null, managementOs: "User managed", metadataJson: { planningNode: true },
+    specStatus: SpecStatus.USER_CONFIRMED,
+    profiles: [{ portGroup: "NETWORK", count: 1, media: "RJ45", supportedSpeedsMbps: [100,1000], poeStandard: "NONE", roleHint: "DATA", breakoutCapable: false, namePrefix: "eth", startNumber: 1, sortOrder: 10 }],
+  },
+  {
+    id: "model-generic-network-printer", vendorCode: "GENERIC", category: DeviceCategory.PRINTER,
+    sku: "ENDPOINT-NETWORK-PRINTER", modelName: "Network printer node", sourceUrl: "user-defined",
+    formFactor: "Endpoint", rackUnits: null, managementOs: "Embedded", metadataJson: { planningNode: true },
+    specStatus: SpecStatus.USER_CONFIRMED,
+    profiles: [{ portGroup: "NETWORK", count: 1, media: "RJ45", supportedSpeedsMbps: [10,100,1000], poeStandard: "NONE", roleHint: "DATA", breakoutCapable: false, namePrefix: "eth", startNumber: 1, sortOrder: 10 }],
+  },
   {
     id: "model-fortigate-200g",
     vendorCode: "FORTINET",
@@ -179,6 +214,9 @@ const models: SeedModel[] = [
     supportsHa: true,
     managementOs: "Sophos Firewall OS",
     metadataJson: { fixedPortCount: 12, maxPortDensityWithModules: 20 },
+    unitPriceVnd: 166_730_000,
+    pricingSource: "BG_THIET BI_TONG HOP_GiaiPhap_Netgear_X3100.pdf",
+    quotedAt: new Date("2026-08-13T00:00:00.000+07:00"),
     profiles: [
       {
         portGroup: "GE_RJ45",
@@ -232,6 +270,9 @@ const models: SeedModel[] = [
     supportsStacking: true,
     managementOs: "Cisco IOS XE",
     metadataJson: { modularUplinksExcluded: true },
+    unitPriceVnd: 566_250_000,
+    pricingSource: "BG_CISCO 25GB &XGS3100.pdf",
+    quotedAt: new Date("2026-07-15T00:00:00.000+07:00"),
     profiles: [
       {
         portGroup: "SFP28_ACCESS",
@@ -262,6 +303,9 @@ const models: SeedModel[] = [
     supportsStacking: true,
     managementOs: "NETGEAR AV OS",
     metadataJson: { alternateSku: "M4350-24F4V" },
+    unitPriceVnd: 155_670_000,
+    pricingSource: "BG_THIET BI_TONG HOP_GiaiPhap_Netgear_X3100.pdf",
+    quotedAt: new Date("2026-08-13T00:00:00.000+07:00"),
     profiles: [
       {
         portGroup: "SFP_PLUS",
@@ -303,6 +347,9 @@ const models: SeedModel[] = [
     supportsMlag: true,
     managementOs: "RouterOS v7 / SwOS",
     metadataJson: { managementEthernetMbps: 100 },
+    unitPriceVnd: 41_250_000,
+    pricingSource: "BG_MICROTIK&XGS3100.pdf",
+    quotedAt: new Date("2026-07-24T00:00:00.000+07:00"),
     profiles: [
       {
         portGroup: "SFP28",
@@ -342,6 +389,7 @@ const models: SeedModel[] = [
       },
     ],
   },
+  ...quoteModels,
 ];
 
 async function seedCatalog() {
@@ -372,7 +420,7 @@ async function seedCatalog() {
       sku: model.sku,
       modelName: model.modelName,
       sourceUrl: model.sourceUrl,
-      specStatus: SpecStatus.VERIFIED_VENDOR,
+      specStatus: model.specStatus ?? SpecStatus.VERIFIED_VENDOR,
       verifiedAt,
       formFactor: model.formFactor,
       rackUnits: model.rackUnits,
@@ -388,6 +436,10 @@ async function seedCatalog() {
       managementOs: model.managementOs,
       metadataJson: model.metadataJson,
       isCustom: false,
+      unitPriceVnd: model.unitPriceVnd,
+      priceVatRateBps: model.priceVatRateBps ?? 800,
+      pricingSource: model.pricingSource,
+      quotedAt: model.quotedAt,
     };
     const stored = await prisma.deviceModel.upsert({
       where: { sku: model.sku },
@@ -518,6 +570,9 @@ async function seedLocations() {
     floorId: b2Id,
     zoneId: zone.id,
     rackId: rack.id,
+    floorIdsByCode: Object.fromEntries(
+      storedFloors.map((floor) => [floor.code, floor.id]),
+    ),
   };
 }
 
@@ -552,38 +607,196 @@ async function seedScenariosAndDevices(
     },
   });
 
+  const quoteCostItems = [
+    [
+      "SOPHOS-SUPPORT-1Y",
+      ProjectCostCategory.SOFTWARE,
+      "Sophos XGS3100 Network Protection + Enhanced Support (1 year)",
+      1,
+      65_993_400,
+      0,
+    ],
+    [
+      "SFP-10G-LR",
+      ProjectCostCategory.OPTICS,
+      "Wintop 10G LR SFP+ 10 km",
+      26,
+      1_110_000,
+      800,
+    ],
+    [
+      "SFP-10G-SR",
+      ProjectCostCategory.OPTICS,
+      "Wintop 10G SR SFP+ 300 m",
+      4,
+      1_110_000,
+      800,
+    ],
+    [
+      "PATCH-SM-2M",
+      ProjectCostCategory.CABLING,
+      "Single-mode SC/UPC patch cord 2 m",
+      26,
+      50_000,
+      800,
+    ],
+    [
+      "PATCH-MM-2M",
+      ProjectCostCategory.CABLING,
+      "Multimode LC/UPC patch cord 2 m",
+      5,
+      96_000,
+      800,
+    ],
+    [
+      "ODF-24FO",
+      ProjectCostCategory.ACCESSORY,
+      "Fixed rack ODF 24FO SC/UPC",
+      2,
+      810_000,
+      800,
+    ],
+    [
+      "ODF-08FO",
+      ProjectCostCategory.ACCESSORY,
+      "Fixed rack ODF 08FO SC/UPC",
+      4,
+      590_000,
+      800,
+    ],
+    [
+      "PATCH-PANEL-CAT6",
+      ProjectCostCategory.RACK,
+      "AMPC 24-port CAT6 patch panel 1U",
+      18,
+      1_950_000,
+      800,
+    ],
+    [
+      "WALL-RACK-6U",
+      ProjectCostCategory.RACK,
+      "AMPC wall-mount rack 6U",
+      10,
+      2_700_000,
+      800,
+    ],
+    [
+      "RJ45-COMMSCOPE",
+      ProjectCostCategory.CABLING,
+      "CommScope CAT6 RJ45 plug",
+      100,
+      30_000,
+      800,
+    ],
+    [
+      "RJ45-DINTEK-BAG",
+      ProjectCostCategory.CABLING,
+      "DINTEK CAT6 modular plug bag",
+      7,
+      1_040_000,
+      800,
+    ],
+    [
+      "RJ45-BOOT-BAG",
+      ProjectCostCategory.CABLING,
+      "DINTEK yellow RJ45 boot bag",
+      8,
+      350_000,
+      800,
+    ],
+    [
+      "INSTALLATION",
+      ProjectCostCategory.SERVICE,
+      "Installation and device configuration",
+      1,
+      15_000_000,
+      800,
+    ],
+  ] as const;
+  for (const [
+    code,
+    category,
+    description,
+    quantity,
+    unitCostVnd,
+    vatRateBps,
+  ] of quoteCostItems) {
+    await prisma.projectCostItem.upsert({
+      where: { scenarioId_code: { scenarioId: proposed.id, code } },
+      create: {
+        scenarioId: proposed.id,
+        code,
+        category,
+        description,
+        quantity,
+        unitCostVnd,
+        vatRateBps,
+        source: "BG_THIET BI_TONG HOP_GiaiPhap_Netgear_X3100.pdf",
+      },
+      update: { category, description, quantity, unitCostVnd, vatRateBps },
+    });
+  }
+
   for (const scenario of [baseline, proposed]) {
-    const definitions = [
+    const baselineDefinitions = [
       {
         hostname: "FW-01",
         displayName: "Firewall 01",
         sku: "FG-200G",
         rackUnitStart: 40,
+        floorCode: "B2",
       },
       {
         hostname: "FW-02",
         displayName: "Firewall 02",
         sku: "FG-200G",
         rackUnitStart: 39,
+        floorCode: "B2",
       },
       {
         hostname: "CORE-01",
         displayName: "Core Switch 01",
         sku: "XSM4328FV",
         rackUnitStart: 37,
+        floorCode: "B2",
       },
       {
         hostname: "CORE-02",
         displayName: "Core Switch 02",
         sku: "XSM4328FV",
         rackUnitStart: 36,
+        floorCode: "B2",
       },
     ];
+    const definitions =
+      scenario.id === proposed.id ? netgearDemoDevices : baselineDefinitions;
+
+    if (scenario.id === proposed.id) {
+      await prisma.deviceInstance.deleteMany({
+        where: {
+          scenarioId: scenario.id,
+          hostname: "FW-02",
+          notes: {
+            startsWith:
+              "Seeded planning record; identifiers and operational status require user confirmation.",
+          },
+        },
+      });
+    }
 
     for (const definition of definitions) {
       const catalogModel = catalog.get(definition.sku);
       if (!catalogModel)
         throw new Error(`Missing seeded model ${definition.sku}.`);
+      const floorId = location.floorIdsByCode[definition.floorCode];
+      if (!floorId)
+        throw new Error(`Missing seeded floor ${definition.floorCode}.`);
+      const inCoreRack =
+        definition.floorCode === "B2" &&
+        (definition.hostname.startsWith("FW-") ||
+          definition.hostname.startsWith("CORE-"));
+      const rackUnitStart =
+        "rackUnitStart" in definition ? definition.rackUnitStart : undefined;
       const device = await prisma.deviceInstance.upsert({
         where: {
           scenarioId_hostname: {
@@ -597,12 +810,25 @@ async function seedScenariosAndDevices(
           displayName: definition.displayName,
           modelId: catalogModel.id,
           status: DeviceStatus.PLANNED,
-          ...location,
-          rackUnitStart: definition.rackUnitStart,
+          buildingId: location.buildingId,
+          floorId,
+          zoneId: inCoreRack ? location.zoneId : null,
+          rackId: inCoreRack ? location.rackId : null,
+          rackUnitStart,
           notes:
-            "Seeded planning record; identifiers and operational status require user confirmation.",
+            scenario.id === proposed.id
+              ? "Seeded from the 2026-08-13 Netgear/Sophos/Maipu/UniFi quotation for demo planning; serials and installed status require confirmation."
+              : "Seeded planning record; identifiers and operational status require user confirmation.",
         },
-        update: {},
+        update: {
+          displayName: definition.displayName,
+          modelId: catalogModel.id,
+          buildingId: location.buildingId,
+          floorId,
+          zoneId: inCoreRack ? location.zoneId : null,
+          rackId: inCoreRack ? location.rackId : null,
+          rackUnitStart,
+        },
       });
 
       const portCount = await prisma.port.count({
@@ -626,7 +852,7 @@ async function main() {
   const location = await seedLocations();
   await seedScenariosAndDevices(location, catalog);
   console.log(
-    "Seeded M1 inventory and SP-0 canonical coordinates with blank floor maps.",
+    "Seeded catalog alternatives and the 2026-08-13 Netgear quote demo inventory.",
   );
 }
 

@@ -18,6 +18,11 @@ function device(locked = false) {
   return {
     id: "device-1",
     scenarioId: "scenario-a",
+    hostname: "DEVICE-1",
+    displayName: "Device 1",
+    modelId: "model-1",
+    buildingId: "building-1",
+    floorId: "floor-1",
     status: "PLANNED",
     scenario: { id: "scenario-a", isLocked: locked },
     ports: [],
@@ -154,6 +159,24 @@ describe("inventoryService", () => {
     });
   });
 
+  it("allows identity-only edits on a locked baseline", async () => {
+    const repo = repository({
+      findByIdInScenario: vi.fn().mockResolvedValue(device(true)),
+      findHostnameConflict: vi.fn().mockResolvedValue(false),
+    });
+    await updateInventoryDevice(
+      "scenario-a",
+      "device-1",
+      { hostname: "core-baseline", displayName: "Core Baseline" },
+      repo,
+    );
+    expect(repo.updateInScenario).toHaveBeenCalledWith(
+      "device-1",
+      "scenario-a",
+      { hostname: "CORE-BASELINE", displayName: "Core Baseline" },
+    );
+  });
+
   it("updates and deletes only through the scenario-scoped repository methods", async () => {
     const repo = repository();
     await updateInventoryDevice(
@@ -191,6 +214,83 @@ describe("inventoryService", () => {
         repository({ deleteInScenario: vi.fn().mockResolvedValue(false) }),
       ),
     ).rejects.toMatchObject({ code: "DEVICE_NOT_FOUND" });
+  });
+
+  it("validates the complete hierarchy before changing device location", async () => {
+    const repo = repository();
+    await updateInventoryDevice(
+      "scenario-a",
+      "device-1",
+      {
+        buildingId: "building-1",
+        floorId: "floor-2",
+        zoneId: "zone-2",
+        rackId: "rack-2",
+        rackUnitStart: 12,
+      },
+      repo,
+    );
+    expect(repo.getCreationContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scenarioId: "scenario-a",
+        modelId: "model-1",
+        buildingId: "building-1",
+        floorId: "floor-2",
+        zoneId: "zone-2",
+        rackId: "rack-2",
+      }),
+    );
+    expect(repo.updateInScenario).toHaveBeenCalledWith(
+      "device-1",
+      "scenario-a",
+      expect.objectContaining({ floorId: "floor-2", rackUnitStart: 12 }),
+    );
+
+    const invalidRepo = repository({
+      getCreationContext: vi
+        .fn()
+        .mockResolvedValue({
+          scenario: { id: "scenario-a", isLocked: false },
+          profiles: [],
+          locationValid: false,
+        }),
+    });
+    await expect(
+      updateInventoryDevice(
+        "scenario-a",
+        "device-1",
+        { buildingId: "building-1", floorId: "floor-x" },
+        invalidRepo,
+      ),
+    ).rejects.toMatchObject({ code: "INVALID_LOCATION" });
+  });
+
+  it("normalizes hostname edits and rejects duplicates in the scenario", async () => {
+    const repo = repository({
+      findHostnameConflict: vi.fn().mockResolvedValue(false),
+    });
+    await updateInventoryDevice(
+      "scenario-a",
+      "device-1",
+      { hostname: " core-new ", displayName: "Core mới" },
+      repo,
+    );
+    expect(repo.updateInScenario).toHaveBeenCalledWith(
+      "device-1",
+      "scenario-a",
+      { hostname: "CORE-NEW", displayName: "Core mới" },
+    );
+    const duplicateRepo = repository({
+      findHostnameConflict: vi.fn().mockResolvedValue(true),
+    });
+    await expect(
+      updateInventoryDevice(
+        "scenario-a",
+        "device-1",
+        { hostname: "CORE-02" },
+        duplicateRepo,
+      ),
+    ).rejects.toMatchObject({ code: "HOSTNAME_CONFLICT", status: 409 });
   });
 
   it("normalizes list filters and ignores invalid enum filters", async () => {

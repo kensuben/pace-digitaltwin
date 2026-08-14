@@ -1,10 +1,8 @@
 import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
-import {
-  CreateDeviceForm,
-  type LocationOption,
-} from "@/components/inventory/create-device-form";
+import { CreateDeviceDialog } from "@/components/inventory/create-device-dialog";
+import { type LocationOption } from "@/components/inventory/create-device-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DeviceCategory, DeviceStatus } from "@/generated/prisma/enums";
 import {
@@ -77,15 +75,23 @@ export default async function InventoryPage({
   return (
     <AppShell>
       <div className="space-y-8">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
-            M1
-          </p>
-          <h1 className="mt-2 text-4xl font-bold">Inventory</h1>
-          <p className="mt-3 text-muted-foreground">
-            Administrative location và scenario ownership là nguồn sự thật; mỗi
-            device sinh port từ catalog profile.
-          </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
+              M1
+            </p>
+            <h1 className="mt-2 text-4xl font-bold">Inventory</h1>
+            <p className="mt-3 text-muted-foreground">
+              Administrative location và scenario ownership là nguồn sự thật;
+              mỗi device sinh port từ catalog profile.
+            </p>
+          </div>
+          <CreateDeviceDialog
+            locations={locations}
+            models={options.models}
+            scenarios={options.scenarios}
+            vendors={options.vendors}
+          />
         </div>
 
         <Card>
@@ -195,19 +201,6 @@ export default async function InventoryPage({
                 ))}
               </tbody>
             </table>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Create Device Instance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CreateDeviceForm
-              locations={locations}
-              models={options.models}
-              scenarios={options.scenarios}
-            />
           </CardContent>
         </Card>
       </div>

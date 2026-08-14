@@ -30,8 +30,85 @@ type Placement = {
   rotationZ: number;
   device: { hostname: string; model: { category: string } };
 };
+type LocalPoint = { x: number; y: number };
+type SpatialZone = {
+  id: string;
+  floorMapId: string;
+  areaM2: number | null;
+  labelX: number | null;
+  labelY: number | null;
+  geometryJson:
+    | { type: "POLYGON"; rings: LocalPoint[][] }
+    | {
+        type: "RECTANGLE";
+        origin: LocalPoint;
+        widthMeters: number;
+        heightMeters: number;
+      };
+  zone: { code: string; name: string };
+};
+type CableRoute = {
+  id: string;
+  routeType: string;
+  calculatedLengthMeters: number | null;
+  points: Array<{
+    floorId: string;
+    xMeters: number;
+    yMeters: number;
+    zMeters: number;
+    riserId: string | null;
+  }>;
+};
+type RackPlacement = {
+  id: string;
+  rackId: string;
+  zoneId: string;
+  xMeters: number;
+  yMeters: number;
+  widthMeters: number;
+  depthMeters: number;
+  heightMeters: number;
+  rotationDegrees: number;
+  rack: { code: string; name: string; rackUnits: number };
+  zone: { code: string };
+};
+type Riser = {
+  id: string;
+  code: string;
+  name: string;
+  type: string;
+  xMeters: number | null;
+  yMeters: number | null;
+};
+type DrawingMode = "PLACE" | "RACK" | "ZONE" | "ROUTE" | "MEASURE";
 export interface FloorSpatialData {
-  floor: { id: string; code: string; name: string; building: { code: string } };
+  floor: {
+    id: string;
+    code: string;
+    name: string;
+    elevationMeters: number | null;
+    building: {
+      id: string;
+      code: string;
+      floors: Array<{
+        id: string;
+        code: string;
+        name: string;
+        elevationMeters: number | null;
+      }>;
+    };
+    zones: Array<{
+      id: string;
+      code: string;
+      name: string;
+      racks: Array<{
+        id: string;
+        code: string;
+        name: string;
+        rackUnits: number;
+      }>;
+    }>;
+  };
   maps: MapRecord[];
   placements: Placement[];
   devices: Device[];
@@ -40,6 +117,10 @@ export interface FloorSpatialData {
     pageNumber: number;
     drawingDocument: { name: string };
   }>;
+  spatialZones: SpatialZone[];
+  cableRoutes: CableRoute[];
+  rackPlacements: RackPlacement[];
+  risers: Riser[];
 }
 
 export function FloorMapEditor({
@@ -56,6 +137,14 @@ export function FloorMapEditor({
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [selectedDevice, setSelectedDevice] = useState("");
+  const [drawingMode, setDrawingMode] = useState<DrawingMode>("PLACE");
+  const [selectedZoneId, setSelectedZoneId] = useState(
+    data.floor.zones[0]?.id ?? "",
+  );
+  const [selectedRackId, setSelectedRackId] = useState("");
+  const [selectedRiserId, setSelectedRiserId] = useState("");
+  const [targetFloorId, setTargetFloorId] = useState("");
+  const [draftPoints, setDraftPoints] = useState<LocalPoint[]>([]);
   const [message, setMessage] = useState("");
   const map = data.maps.find((item) => item.id === mapId);
   const scale = map?.calibration?.calculatedMetersPerPdfPoint ?? 1;
@@ -66,19 +155,22 @@ export function FloorMapEditor({
     url: string,
     method: "POST" | "PATCH" | "DELETE",
     body?: object,
-  ) {
+  ): Promise<boolean> {
     const response = await fetch(url, {
       method,
       headers: body ? { "content-type": "application/json" } : undefined,
       body: body ? JSON.stringify(body) : undefined,
     });
-    const result = (await response.json()) as { error?: { message?: string } };
+    const result = (await response.json()) as {
+      errors?: Array<{ message?: string }>;
+    };
     if (!response.ok) {
-      setMessage(result.error?.message ?? "Operation failed.");
-      return;
+      setMessage(result.errors?.[0]?.message ?? "Operation failed.");
+      return false;
     }
     setMessage("Saved.");
     router.refresh();
+    return true;
   }
   async function calibrate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -102,20 +194,126 @@ export function FloorMapEditor({
       opacity: 1,
     });
   }
-  async function place(event: PointerEvent<SVGSVGElement>) {
-    if (!selectedDevice || !map) return;
+  function pointFromEvent(event: PointerEvent<SVGSVGElement>) {
     const bounds = event.currentTarget.getBoundingClientRect();
     const pdfX = ((event.clientX - bounds.left) / bounds.width) * width;
     const pdfY = ((event.clientY - bounds.top) / bounds.height) * height;
+    return { x: pdfX * scale, y: pdfY * scale };
+  }
+  async function canvasPointerDown(event: PointerEvent<SVGSVGElement>) {
+    if (!map) return;
+    if (drawingMode === "RACK") {
+      const rack = data.floor.zones
+        .flatMap((zone) =>
+          zone.racks.map((item) => ({ ...item, zoneId: zone.id })),
+        )
+        .find((item) => item.id === selectedRackId);
+      if (!rack) return;
+      const point = pointFromEvent(event);
+      if (
+        await mutate("/api/rack-placements", "POST", {
+          rackId: rack.id,
+          zoneId: rack.zoneId,
+          scenarioId,
+          floorId: data.floor.id,
+          floorMapId: map.id,
+          xMeters: point.x,
+          yMeters: point.y,
+        })
+      )
+        setSelectedRackId("");
+      return;
+    }
+    if (drawingMode !== "PLACE") {
+      setDraftPoints((points) => [...points, pointFromEvent(event)]);
+      return;
+    }
+    if (!selectedDevice) return;
+    const point = pointFromEvent(event);
     await mutate("/api/device-placements", "POST", {
       deviceInstanceId: selectedDevice,
       scenarioId,
       floorId: data.floor.id,
       floorMapId: map.id,
-      xMeters: pdfX * scale,
-      yMeters: pdfY * scale,
+      xMeters: point.x,
+      yMeters: point.y,
     });
     setSelectedDevice("");
+  }
+  function selectMode(mode: DrawingMode) {
+    setDrawingMode(mode);
+    setDraftPoints([]);
+    setMessage("");
+  }
+  async function finishZone() {
+    if (!map || !selectedZoneId || draftPoints.length < 3) return;
+    const ring = [...draftPoints, draftPoints[0]!];
+    if (
+      await mutate("/api/spatial-zones", "POST", {
+        scenarioId,
+        zoneId: selectedZoneId,
+        floorId: data.floor.id,
+        floorMapId: map.id,
+        geometry: { type: "POLYGON", rings: [ring] },
+      })
+    )
+      setDraftPoints([]);
+  }
+  async function finishRoute() {
+    if (draftPoints.length < 2) return;
+    const riser = data.risers.find((item) => item.id === selectedRiserId);
+    const targetFloor = data.floor.building.floors.find(
+      (floor) => floor.id === targetFloorId,
+    );
+    const routePoints = draftPoints.map((point) => ({
+      floorId: data.floor.id,
+      xMeters: point.x,
+      yMeters: point.y,
+      zMeters: data.floor.elevationMeters ?? 0,
+    }));
+    if (riser && targetFloor) {
+      const xMeters = riser.xMeters ?? draftPoints.at(-1)!.x;
+      const yMeters = riser.yMeters ?? draftPoints.at(-1)!.y;
+      routePoints.push({
+        floorId: data.floor.id,
+        xMeters,
+        yMeters,
+        zMeters: data.floor.elevationMeters ?? 0,
+        riserId: riser.id,
+      } as (typeof routePoints)[number]);
+      routePoints.push({
+        floorId: targetFloor.id,
+        xMeters,
+        yMeters,
+        zMeters: targetFloor.elevationMeters ?? 0,
+        riserId: riser.id,
+      } as (typeof routePoints)[number]);
+    }
+    if (
+      await mutate("/api/cable-routes", "POST", {
+        scenarioId,
+        routeType: "FIBER",
+        points: routePoints,
+      })
+    )
+      setDraftPoints([]);
+  }
+  async function createRiser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    if (
+      await mutate("/api/risers", "POST", {
+        scenarioId,
+        buildingId: data.floor.building.id,
+        code: form.get("code"),
+        name: form.get("name"),
+        type: "DATA",
+        xMeters: Number(form.get("xMeters")),
+        yMeters: Number(form.get("yMeters")),
+      })
+    )
+      formElement.reset();
   }
   async function move(
     placement: Placement,
@@ -160,6 +358,12 @@ export function FloorMapEditor({
     x: placement.xMeters / scale,
     y: placement.yMeters / scale,
   }));
+  const draftLength = draftPoints.slice(1).reduce((total, point, index) => {
+    const previous = draftPoints[index]!;
+    return total + Math.hypot(point.x - previous.x, point.y - previous.y);
+  }, 0);
+  const toSvgPoints = (points: LocalPoint[]) =>
+    points.map((point) => `${point.x / scale},${point.y / scale}`).join(" ");
   if (!map)
     return (
       <form
@@ -209,6 +413,133 @@ export function FloorMapEditor({
             ))}
           </select>
         </label>
+        <div className="space-y-2">
+          <p className="text-sm font-semibold">Editor tool</p>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            {(
+              [
+                ["PLACE", "Place device"],
+                ["RACK", "Place rack"],
+                ["ZONE", "Draw zone"],
+                ["ROUTE", "Cable route"],
+                ["MEASURE", "Measure"],
+              ] as Array<[DrawingMode, string]>
+            ).map(([mode, label]) => (
+              <button
+                className={`rounded border p-2 ${drawingMode === mode ? "border-primary bg-primary/10" : ""}`}
+                key={mode}
+                onClick={() => selectMode(mode)}
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {drawingMode === "ZONE" && (
+            <select
+              className="w-full rounded border bg-background p-2 text-sm"
+              onChange={(event) => setSelectedZoneId(event.target.value)}
+              value={selectedZoneId}
+            >
+              <option value="">Choose administrative zone</option>
+              {data.floor.zones.map((zone) => (
+                <option key={zone.id} value={zone.id}>
+                  {zone.code} · {zone.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {drawingMode === "RACK" && (
+            <select
+              className="w-full rounded border bg-background p-2 text-sm"
+              onChange={(event) => setSelectedRackId(event.target.value)}
+              value={selectedRackId}
+            >
+              <option value="">Choose unplaced rack</option>
+              {data.floor.zones.flatMap((zone) =>
+                zone.racks
+                  .filter(
+                    (rack) =>
+                      !data.rackPlacements.some(
+                        (placement) => placement.rackId === rack.id,
+                      ),
+                  )
+                  .map((rack) => (
+                    <option key={rack.id} value={rack.id}>
+                      {zone.code} / {rack.code} · {rack.rackUnits}U
+                    </option>
+                  )),
+              )}
+            </select>
+          )}
+          {drawingMode === "ZONE" && (
+            <button
+              className="w-full rounded bg-primary p-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              disabled={draftPoints.length < 3 || !selectedZoneId}
+              onClick={finishZone}
+              type="button"
+            >
+              Close & save zone ({draftPoints.length})
+            </button>
+          )}
+          {drawingMode === "ROUTE" && (
+            <div className="space-y-2">
+              <select
+                className="w-full rounded border bg-background p-2 text-sm"
+                onChange={(event) => setSelectedRiserId(event.target.value)}
+                value={selectedRiserId}
+              >
+                <option value="">Single-floor route</option>
+                {data.risers.map((riser) => (
+                  <option key={riser.id} value={riser.id}>
+                    Via {riser.code} · {riser.type}
+                  </option>
+                ))}
+              </select>
+              {selectedRiserId && (
+                <select
+                  className="w-full rounded border bg-background p-2 text-sm"
+                  onChange={(event) => setTargetFloorId(event.target.value)}
+                  value={targetFloorId}
+                >
+                  <option value="">Choose target floor</option>
+                  {data.floor.building.floors
+                    .filter((floor) => floor.id !== data.floor.id)
+                    .map((floor) => (
+                      <option key={floor.id} value={floor.id}>
+                        {floor.code} · {floor.name}
+                      </option>
+                    ))}
+                </select>
+              )}
+              <button
+                className="w-full rounded bg-primary p-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                disabled={
+                  draftPoints.length < 2 ||
+                  (Boolean(selectedRiserId) && !targetFloorId)
+                }
+                onClick={finishRoute}
+                type="button"
+              >
+                Save route ({draftLength.toFixed(2)} m)
+              </button>
+            </div>
+          )}
+          {drawingMode === "MEASURE" && draftPoints.length > 0 && (
+            <p className="rounded border p-2 text-sm">
+              Distance: {draftLength.toFixed(2)} m
+            </p>
+          )}
+          {draftPoints.length > 0 && (
+            <button
+              className="w-full rounded border p-2 text-xs"
+              onClick={() => setDraftPoints([])}
+              type="button"
+            >
+              Clear draft
+            </button>
+          )}
+        </div>
         <div className="grid grid-cols-3 gap-1 text-sm">
           <span />
           <button
@@ -332,9 +663,90 @@ export function FloorMapEditor({
           />
           <svg
             className="absolute inset-0 h-full w-full cursor-crosshair"
-            onPointerDown={place}
+            onPointerDown={canvasPointerDown}
             viewBox={`0 0 ${width} ${height}`}
           >
+            {data.spatialZones
+              .filter((zone) => zone.floorMapId === map.id)
+              .map((zone) => {
+                const geometry = zone.geometryJson;
+                if (geometry.type === "RECTANGLE")
+                  return (
+                    <rect
+                      className="fill-sky-500/20 stroke-sky-500"
+                      height={geometry.heightMeters / scale}
+                      key={zone.id}
+                      width={geometry.widthMeters / scale}
+                      x={geometry.origin.x / scale}
+                      y={geometry.origin.y / scale}
+                    />
+                  );
+                return (
+                  <polygon
+                    className="fill-sky-500/20 stroke-sky-500"
+                    key={zone.id}
+                    points={toSvgPoints(geometry.rings[0] ?? [])}
+                  />
+                );
+              })}
+            {data.cableRoutes.map((route) => {
+              const points = route.points
+                .filter((point) => point.floorId === data.floor.id)
+                .map((point) => ({ x: point.xMeters, y: point.yMeters }));
+              return points.length > 1 ? (
+                <polyline
+                  className="fill-none stroke-amber-500 stroke-[3]"
+                  key={route.id}
+                  points={toSvgPoints(points)}
+                />
+              ) : null;
+            })}
+            {data.rackPlacements.map((placement) => (
+              <g
+                key={placement.id}
+                transform={`rotate(${placement.rotationDegrees} ${placement.xMeters / scale} ${placement.yMeters / scale})`}
+              >
+                <rect
+                  className="fill-violet-500/40 stroke-violet-300 stroke-[2]"
+                  height={placement.depthMeters / scale}
+                  width={placement.widthMeters / scale}
+                  x={
+                    placement.xMeters / scale -
+                    placement.widthMeters / scale / 2
+                  }
+                  y={
+                    placement.yMeters / scale -
+                    placement.depthMeters / scale / 2
+                  }
+                />
+                <text
+                  className="fill-violet-100 text-[9px] font-bold"
+                  x={placement.xMeters / scale + 5}
+                  y={placement.yMeters / scale}
+                >
+                  {placement.rack.code}
+                </text>
+              </g>
+            ))}
+            {draftPoints.length > 0 && (
+              <polyline
+                className={`fill-none stroke-[2] [stroke-dasharray:6_4] ${drawingMode === "ZONE" ? "stroke-sky-300" : "stroke-lime-400"}`}
+                points={toSvgPoints(
+                  drawingMode === "ZONE" && draftPoints.length > 2
+                    ? [...draftPoints, draftPoints[0]!]
+                    : draftPoints,
+                )}
+              />
+            )}
+            {draftPoints.map((point, index) => (
+              <circle
+                className="fill-background stroke-lime-400"
+                cx={point.x / scale}
+                cy={point.y / scale}
+                key={`${point.x}:${point.y}:${index}`}
+                r={4}
+              />
+            ))}
             {markers.map((marker) => (
               <g key={marker.id}>
                 <circle
@@ -394,6 +806,93 @@ export function FloorMapEditor({
             : "Uncalibrated"}
         </p>
         {message && <p className="rounded border p-2 text-sm">{message}</p>}
+        <div className="space-y-2">
+          <h3 className="font-semibold">
+            Spatial layers ({data.spatialZones.length} zones ·{" "}
+            {data.cableRoutes.length} routes)
+          </h3>
+          {data.spatialZones.map((zone) => (
+            <div className="rounded border p-2 text-sm" key={zone.id}>
+              <span className="font-semibold">{zone.zone.code}</span>
+              {zone.areaM2 !== null && ` · ${zone.areaM2.toFixed(2)} m²`}
+            </div>
+          ))}
+          {data.cableRoutes.map((route) => (
+            <div className="rounded border p-2 text-sm" key={route.id}>
+              <span className="font-semibold">{route.routeType}</span>
+              {route.calculatedLengthMeters !== null &&
+                ` · ${route.calculatedLengthMeters.toFixed(2)} m`}
+              <button
+                className="ml-2 text-destructive"
+                onClick={() =>
+                  mutate(
+                    `/api/cable-routes/${route.id}?scenarioId=${scenarioId}`,
+                    "DELETE",
+                  )
+                }
+                type="button"
+              >
+                Delete
+              </button>
+            </div>
+          ))}
+          {data.rackPlacements.map((placement) => (
+            <div className="rounded border p-2 text-sm" key={placement.id}>
+              <span className="font-semibold">{placement.rack.code}</span> ·{" "}
+              {placement.rack.rackUnits}U · {placement.zone.code}
+              <button
+                className="ml-2 text-destructive"
+                onClick={() =>
+                  mutate(
+                    `/api/rack-placements/${placement.id}?scenarioId=${scenarioId}`,
+                    "DELETE",
+                  )
+                }
+                type="button"
+              >
+                Delete
+              </button>
+            </div>
+          ))}
+        </div>
+        <form className="grid grid-cols-2 gap-2" onSubmit={createRiser}>
+          <h3 className="col-span-2 font-semibold">Building riser</h3>
+          <input
+            className="rounded border bg-background p-2 text-sm"
+            name="code"
+            placeholder="R-01"
+            required
+          />
+          <input
+            className="rounded border bg-background p-2 text-sm"
+            name="name"
+            placeholder="Data riser"
+            required
+          />
+          <input
+            className="rounded border bg-background p-2 text-sm"
+            name="xMeters"
+            placeholder="X meters"
+            required
+            step="any"
+            type="number"
+          />
+          <input
+            className="rounded border bg-background p-2 text-sm"
+            name="yMeters"
+            placeholder="Y meters"
+            required
+            step="any"
+            type="number"
+          />
+          <button className="col-span-2 rounded border p-2 text-sm">
+            Add data riser
+          </button>
+          <p className="col-span-2 text-xs text-muted-foreground">
+            Reference drawings place repeated shafts near the stair/elevator
+            core; confirm calibrated coordinates before saving.
+          </p>
+        </form>
         <div className="space-y-2">
           <h3 className="font-semibold">
             Placements ({data.placements.length})

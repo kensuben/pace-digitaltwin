@@ -321,10 +321,24 @@ export class PrismaFloorMapRepository implements FloorMapRepository {
   }
 
   async getSpatial(floorId: string, scenarioId: string) {
-    const [floor, maps, placements, devices, pages] = await Promise.all([
+    const [
+      floor,
+      maps,
+      placements,
+      rackPlacements,
+      devices,
+      pages,
+      spatialZones,
+      cableRoutes,
+    ] = await Promise.all([
       this.prisma.floor.findUnique({
         where: { id: floorId },
-        include: { building: true },
+        include: {
+          building: {
+            include: { floors: { orderBy: { level: "asc" } } },
+          },
+          zones: { include: { racks: true }, orderBy: { code: "asc" } },
+        },
       }),
       this.prisma.floorMap.findMany({
         where: { floorId, scenarioId },
@@ -335,6 +349,11 @@ export class PrismaFloorMapRepository implements FloorMapRepository {
         where: { floorId, scenarioId },
         include: { device: { include: { model: true } } },
         orderBy: { device: { hostname: "asc" } },
+      }),
+      this.prisma.rackPlacement.findMany({
+        where: { floorId, scenarioId },
+        include: { rack: true, zone: true },
+        orderBy: { rack: { code: "asc" } },
       }),
       this.prisma.deviceInstance.findMany({
         where: { floorId, scenarioId },
@@ -350,16 +369,40 @@ export class PrismaFloorMapRepository implements FloorMapRepository {
         },
         orderBy: { createdAt: "desc" },
       }),
+      this.prisma.spatialZone.findMany({
+        where: { floorId, floorMap: { scenarioId } },
+        include: { zone: true },
+        orderBy: { zone: { code: "asc" } },
+      }),
+      this.prisma.cableRoute.findMany({
+        where: { scenarioId, points: { some: { floorId } } },
+        include: {
+          points: {
+            include: { riser: true },
+            orderBy: { sequence: "asc" },
+          },
+        },
+        orderBy: { updatedAt: "desc" },
+      }),
     ]);
     return {
       floor,
       maps,
       placements,
+      rackPlacements,
       devices: devices.map(({ placements: devicePlacements, ...device }) => ({
         ...device,
         placement: devicePlacements[0] ?? null,
       })),
       pages,
+      spatialZones,
+      cableRoutes,
+      risers: floor
+        ? await this.prisma.riser.findMany({
+            where: { buildingId: floor.buildingId },
+            orderBy: { code: "asc" },
+          })
+        : [],
     };
   }
 

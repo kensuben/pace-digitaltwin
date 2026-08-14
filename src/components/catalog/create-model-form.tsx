@@ -4,21 +4,24 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { DeviceCategory } from "@/generated/prisma/enums";
 
 interface CreateModelFormProps {
   vendors: Array<{ id: string; name: string }>;
+  onCreated?: (model: { id: string; sku: string; modelName: string }) => void;
 }
 
-export function CreateModelForm({ vendors }: CreateModelFormProps) {
+export function CreateModelForm({ vendors, onCreated }: CreateModelFormProps) {
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     setSubmitting(true);
     setMessage("");
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
     const speeds = String(form.get("speeds"))
       .split(",")
       .map((value) => Number(value.trim()))
@@ -47,6 +50,7 @@ export function CreateModelForm({ vendors }: CreateModelFormProps) {
       }),
     });
     const result = (await response.json()) as {
+      data?: { id: string; sku: string; modelName: string };
       errors?: Array<{ message: string }>;
     };
     setSubmitting(false);
@@ -54,9 +58,10 @@ export function CreateModelForm({ vendors }: CreateModelFormProps) {
       setMessage(result.errors?.[0]?.message ?? "Không thể tạo model.");
       return;
     }
-    event.currentTarget.reset();
+    formElement.reset();
     setMessage("Đã tạo custom model.");
     router.refresh();
+    if (result.data) onCreated?.(result.data);
   }
 
   return (
@@ -82,11 +87,11 @@ export function CreateModelForm({ vendors }: CreateModelFormProps) {
           name="category"
           required
         >
-          <option value="CORE_SWITCH">Core switch</option>
-          <option value="ACCESS_SWITCH">Access switch</option>
-          <option value="FIREWALL">Firewall</option>
-          <option value="SERVER">Server</option>
-          <option value="OTHER">Other</option>
+          {Object.values(DeviceCategory).map((category) => (
+            <option key={category} value={category}>
+              {category.replaceAll("_", " ")}
+            </option>
+          ))}
         </select>
       </label>
       <label className="grid gap-1 text-sm">
@@ -163,7 +168,7 @@ export function CreateModelForm({ vendors }: CreateModelFormProps) {
       </label>
       <div className="flex items-center gap-3 md:col-span-2">
         <Button disabled={submitting} type="submit">
-          {submitting ? "Đang tạo…" : "Create custom model"}
+          {submitting ? "Đang tạo…" : "Tạo Model mới"}
         </Button>
         <span aria-live="polite" className="text-sm text-muted-foreground">
           {message}

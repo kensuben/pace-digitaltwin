@@ -1,5 +1,60 @@
 # Development Changelog
 
+## 2026-08-14 — Floor endpoint and camera planning
+
+### Added
+
+- Desktop/Laptop and Printer inventory categories with bulk per-floor node creation and automatic hostname sequencing.
+- Two HIKVISION 4MP PoE camera models from the 2026-07-24 Nam Trường Sơn quotation, including quantities and quote-backed prices.
+- PoE enforcement for both AP and Camera local mapping; bulk-created endpoints participate in the existing local auto-connect workflow.
+
+## 2026-08-14 — Guided system design UX
+
+### Added
+
+- Five-step design wizard for clone, scope confirmation, model customization, network failure session and decision summary.
+- Context-aware replacement choices, compatibility/cost preview and automatic scenario refresh after commit.
+- Executive landing dashboard and clearer primary navigation for stakeholder demos.
+- Documented the recommended guided-design user process and future simulation templates.
+
+## 2026-08-14 — M5 scenario/simulation acceptance
+
+### Added
+
+- Transactional full-scenario cloning with ID remapping for physical, logical, spatial, validation and costing records.
+- Scenario comparison and graph-based device/link failure simulation APIs and executive demo UI.
+- Database UAT by cloning the 50-device, 13-cost-item quotation scenario with zero comparison delta.
+- Failure UAT for `CORE-01` and 154 passing unit tests; M5 exit gate is complete.
+
+## 2026-08-14 — Live project costing dashboard
+
+### Added
+
+- Quote-backed model unit prices and scenario-owned software, optics, cabling, rack, accessory and service cost items.
+- Derived cost engine with per-line VAT, missing-price coverage and automatic updates from current inventory/model assignments.
+- Executive dashboard at `/costs` with investment KPIs, category composition and itemized totals; model-swap preview now shows cost delta.
+- Seed reconciliation matching the 2026-08-13 proposal total of 1,172,917,800 VND after VAT.
+
+## 2026-08-14 — Quotation-backed demo inventory
+
+### Added
+
+- Catalog alternatives from the supplied Netgear, MikroTik and Cisco quotations, with vendor-verified port profiles.
+- A 50-device Proposed demo inventory based on the latest 2026-08-13 Netgear proposal: Sophos firewall, redundant Netgear core, access switches, Maipu PoE switches and UniFi U7 Pro APs.
+- Explicit import policy separating managed devices from licenses, optics, passive cabling, rack accessories and services.
+
+## 2026-08-14 — SP-3 spatial planning backend
+
+### Added
+
+- Validated APIs and audited persistence for manual spatial zones, cable routes and risers.
+- Canonical polygon-area and 3D route-length calculations in floor-local meters.
+- Scenario-lock, spatial-reference and cross-floor riser/shaft enforcement.
+- Floor spatial read-model support for zones, routes and risers, with unit coverage for SP-3 rules.
+- Direct polygon-zone and cable-route drawing, saved-layer overlays and meter-based measurement tools in the 2D floor editor.
+- Added scenario-owned rack placements with physical dimensions, direct riser references on cable points and editor workflow for vertical routes between building floors.
+- Reviewed the supplied PACE Cô Giang architectural and interior PDFs: used the B2 server room and repeated service core as workflow evidence without inferring uncalibrated coordinates.
+
 ## 2026-08-13 — Phase SP-1 PDF ingestion
 
 ### Added

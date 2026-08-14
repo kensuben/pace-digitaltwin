@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
 import { DeviceActions } from "@/components/inventory/device-actions";
+import type { LocationOption } from "@/components/inventory/create-device-form";
 import { ModelSwap } from "@/components/inventory/model-swap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppError } from "@/server/errors";
@@ -35,6 +36,50 @@ export default async function DevicePage({
     },
   );
   const options = await getInventoryOptions();
+  const locations: LocationOption[] = options.buildings.flatMap((building) =>
+    building.floors.flatMap((floor) => {
+      const floorOption: LocationOption = {
+        key: `${building.id}:${floor.id}`,
+        label: `${building.code} / ${floor.code}`,
+        buildingId: building.id,
+        floorId: floor.id,
+        zoneId: null,
+        rackId: null,
+      };
+      return [
+        floorOption,
+        ...floor.zones.flatMap((zone) => {
+          const zoneOption: LocationOption = {
+            key: `${building.id}:${floor.id}:${zone.id}`,
+            label: `${building.code} / ${floor.code} / ${zone.code}`,
+            buildingId: building.id,
+            floorId: floor.id,
+            zoneId: zone.id,
+            rackId: null,
+          };
+          return [
+            zoneOption,
+            ...zone.racks.map((rack): LocationOption => ({
+              key: `${building.id}:${floor.id}:${zone.id}:${rack.id}`,
+              label: `${building.code} / ${floor.code} / ${zone.code} / ${rack.code}`,
+              buildingId: building.id,
+              floorId: floor.id,
+              zoneId: zone.id,
+              rackId: rack.id,
+            })),
+          ];
+        }),
+      ];
+    }),
+  );
+  const currentLocationKey = [
+    device.buildingId,
+    device.floorId,
+    device.zoneId,
+    device.rackId,
+  ]
+    .filter(Boolean)
+    .join(":");
   const links = device.ports.flatMap((port) => [
     ...port.sourceLinks.map((physicalLink) => ({
       ...physicalLink,
@@ -139,9 +184,14 @@ export default async function DevicePage({
             <CardContent>
               <DeviceActions
                 currentStatus={device.status}
+                currentHostname={device.hostname}
+                currentDisplayName={device.displayName}
+                currentLocationKey={currentLocationKey}
+                currentRackUnit={device.rackUnitStart}
                 deviceId={device.id}
                 locked={device.scenario.isLocked}
                 scenarioId={device.scenarioId}
+                locations={locations}
               />
             </CardContent>
           </Card>

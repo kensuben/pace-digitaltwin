@@ -53,6 +53,7 @@ export interface ModelSwapRepository {
         supportsMlag: boolean;
         supportsStacking: boolean;
         supportsHa: boolean;
+        unitPriceVnd: number | null;
       };
       ports: ExistingSwapPort[];
     };
@@ -64,6 +65,7 @@ export interface ModelSwapRepository {
       supportsMlag: boolean;
       supportsStacking: boolean;
       supportsHa: boolean;
+      unitPriceVnd: number | null;
       profiles: Parameters<
         typeof import("@/domain/ports/generatePorts").generatePorts
       >[0];
@@ -160,6 +162,7 @@ export class PrismaModelSwapRepository implements ModelSwapRepository {
         supportsMlag: target.supportsMlag,
         supportsStacking: target.supportsStacking,
         supportsHa: target.supportsHa,
+        unitPriceVnd: target.unitPriceVnd,
         profiles: target.portProfiles,
       },
     };

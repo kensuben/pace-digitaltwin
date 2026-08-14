@@ -4,7 +4,10 @@ import {
   affineTransformSchema,
   devicePlacementDtoSchema,
   localGeometrySchema,
+  rackPlacementDtoSchema,
   scaleCalibrationDtoSchema,
+  cableRouteDtoSchema,
+  spatialZoneDtoSchema,
 } from "@/domain/spatial/schemas";
 
 describe("spatial DTO schemas", () => {
@@ -31,6 +34,51 @@ describe("spatial DTO schemas", () => {
         yMeters: 2.5,
       }),
     ).toMatchObject({ zMeters: 0, rotationZ: 0 });
+  });
+
+  it("validates SP-3 zone and cable route payloads", () => {
+    expect(
+      spatialZoneDtoSchema.safeParse({
+        scenarioId: "s",
+        zoneId: "z",
+        floorId: "f",
+        floorMapId: "m",
+        geometry: {
+          type: "RECTANGLE",
+          origin: { x: 0, y: 0 },
+          widthMeters: 4,
+          heightMeters: 3,
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      cableRouteDtoSchema.parse({
+        scenarioId: "s",
+        routeType: "FIBER",
+        points: [
+          { floorId: "f", xMeters: 0, yMeters: 0 },
+          { floorId: "f", xMeters: 1, yMeters: 1 },
+        ],
+      }),
+    ).toMatchObject({ status: "PLANNED" });
+  });
+
+  it("defaults a rack footprint to a standard 600 mm cabinet", () => {
+    expect(
+      rackPlacementDtoSchema.parse({
+        rackId: "rack-1",
+        zoneId: "zone-1",
+        scenarioId: "scenario-1",
+        floorId: "floor-1",
+        xMeters: 1,
+        yMeters: 2,
+      }),
+    ).toMatchObject({
+      widthMeters: 0.6,
+      depthMeters: 1,
+      heightMeters: 2,
+      rotationDegrees: 0,
+    });
   });
 
   it("rejects open polygons, non-finite transforms and invalid calibration", () => {

@@ -80,7 +80,8 @@ export function NetworkConfigManager({ data }: { data: NetworkConfigData }) {
 
   async function createVlan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     if (
       await mutate("/api/vlans", "POST", {
         scenarioId: data.scenario.id,
@@ -89,11 +90,12 @@ export function NetworkConfigManager({ data }: { data: NetworkConfigData }) {
         purpose: form.get("purpose") || null,
       })
     )
-      event.currentTarget.reset();
+      formElement.reset();
   }
   async function createSubnet(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     if (
       await mutate("/api/subnets", "POST", {
         scenarioId: data.scenario.id,
@@ -105,11 +107,12 @@ export function NetworkConfigManager({ data }: { data: NetworkConfigData }) {
         dnsServers: [],
       })
     )
-      event.currentTarget.reset();
+      formElement.reset();
   }
   async function createLag(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const deviceInstanceId = String(form.get("deviceInstanceId"));
     if (
       await mutate("/api/lags", "POST", {
@@ -123,11 +126,12 @@ export function NetworkConfigManager({ data }: { data: NetworkConfigData }) {
         memberPortIds: form.getAll("memberPortIds"),
       })
     )
-      event.currentTarget.reset();
+      formElement.reset();
   }
   async function createMembership(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const target = String(form.get("target"));
     const [kind, id] = target.split(":");
     const mode = String(form.get("mode"));
@@ -144,7 +148,7 @@ export function NetworkConfigManager({ data }: { data: NetworkConfigData }) {
         allowedVlanIds,
       })
     )
-      event.currentTarget.reset();
+      formElement.reset();
   }
   async function rename(
     kind: "lags" | "vlans" | "subnets",

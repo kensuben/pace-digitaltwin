@@ -17,6 +17,8 @@ enum DeviceCategory {
   NVR
   AP
   CAMERA
+  DESKTOP_LAPTOP
+  PRINTER
   UPS
   ISP_CPE
   OTHER
@@ -304,6 +306,16 @@ enum RiserType {
   MIXED
 }
 
+enum ProjectCostCategory {
+  SOFTWARE
+  OPTICS
+  CABLING
+  RACK
+  ACCESSORY
+  SERVICE
+  OTHER
+}
+
 model Campus {
   id          String            @id @default(cuid())
   code        String            @unique
@@ -352,6 +364,7 @@ model Floor {
   floorMaps                FloorMap[]
   coordinateSystems        SpatialCoordinateSystem[]
   devicePlacements         DevicePlacement[]
+  rackPlacements           RackPlacement[]
   buildingFeatures         BuildingFeature[]
   cableRoutePoints         CableRoutePoint[]
   modelNodeMappings        ModelNodeMapping[]
@@ -373,6 +386,7 @@ model Zone {
   racks             Rack[]
   devices           DeviceInstance[]   @relation("DeviceZone")
   spatialZones      SpatialZone[]
+  rackPlacements    RackPlacement[]
   modelNodeMappings ModelNodeMapping[]
 
   @@unique([floorId, code])
@@ -381,15 +395,16 @@ model Zone {
 }
 
 model Rack {
-  id        String           @id @default(cuid())
-  zoneId    String
-  code      String
-  name      String
-  rackUnits Int
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  zone      Zone             @relation(fields: [zoneId], references: [id], onDelete: Restrict)
-  devices   DeviceInstance[] @relation("DeviceRack")
+  id         String           @id @default(cuid())
+  zoneId     String
+  code       String
+  name       String
+  rackUnits  Int
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  zone       Zone             @relation(fields: [zoneId], references: [id], onDelete: Restrict)
+  devices    DeviceInstance[] @relation("DeviceRack")
+  placements RackPlacement[]
 
   @@unique([zoneId, code])
   @@unique([id, zoneId])
@@ -434,6 +449,10 @@ model DeviceModel {
   specStatus            SpecStatus       @default(UNKNOWN)
   verifiedAt            DateTime?
   isCustom              Boolean          @default(false)
+  unitPriceVnd          Int?
+  priceVatRateBps       Int              @default(800)
+  pricingSource         String?
+  quotedAt              DateTime?
   createdAt             DateTime         @default(now())
   updatedAt             DateTime         @updatedAt
   vendor                Vendor           @relation(fields: [vendorId], references: [id], onDelete: Restrict)
@@ -478,6 +497,7 @@ model Scenario {
   devices            DeviceInstance[]
   floorMaps          FloorMap[]
   devicePlacements   DevicePlacement[]
+  rackPlacements     RackPlacement[]
   buildingModels3d   BuildingModel3D[]
   cableRoutes        CableRoute[]
   physicalLinks      PhysicalLink[]
@@ -487,8 +507,28 @@ model Scenario {
   subnets            Subnet[]
   vlanMemberships    VlanMembership[]
   validationFindings ValidationFinding[]
+  costItems          ProjectCostItem[]
 
   @@index([type, isLocked])
+}
+
+model ProjectCostItem {
+  id          String              @id @default(cuid())
+  scenarioId  String
+  category    ProjectCostCategory
+  code        String
+  description String
+  quantity    Int                 @default(1)
+  unitCostVnd Int
+  vatRateBps  Int                 @default(800)
+  source      String?
+  notes       String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  scenario    Scenario            @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@unique([scenarioId, code])
+  @@index([scenarioId, category])
 }
 
 model DeviceInstance {
@@ -861,6 +901,7 @@ model FloorMap {
   coordinateSystem    SpatialCoordinateSystem @relation(fields: [coordinateSystemId, floorId], references: [id, floorId], onDelete: Restrict)
   calibration         ScaleCalibration?
   placements          DevicePlacement[]
+  rackPlacements      RackPlacement[]
   spatialZones        SpatialZone[]
   buildingFeatures    BuildingFeature[]
 
@@ -908,6 +949,33 @@ model DevicePlacement {
   floorMap         FloorMap?           @relation(fields: [floorMapId, floorId], references: [id, floorId], onDelete: Restrict)
 
   @@unique([deviceInstanceId, scenarioId])
+  @@index([scenarioId, floorId])
+  @@index([floorMapId, floorId])
+}
+
+model RackPlacement {
+  id              String    @id @default(cuid())
+  rackId          String
+  zoneId          String
+  floorId         String
+  floorMapId      String?
+  scenarioId      String
+  xMeters         Float
+  yMeters         Float
+  zMeters         Float     @default(0)
+  widthMeters     Float     @default(0.6)
+  depthMeters     Float     @default(1.0)
+  heightMeters    Float     @default(2.0)
+  rotationDegrees Float     @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  rack            Rack      @relation(fields: [rackId, zoneId], references: [id, zoneId], onDelete: Cascade)
+  zone            Zone      @relation(fields: [zoneId, floorId], references: [id, floorId], onDelete: Restrict)
+  floor           Floor     @relation(fields: [floorId], references: [id], onDelete: Restrict)
+  floorMap        FloorMap? @relation(fields: [floorMapId, floorId], references: [id, floorId], onDelete: Restrict)
+  scenario        Scenario  @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@unique([rackId, scenarioId])
   @@index([scenarioId, floorId])
   @@index([floorMapId, floorId])
 }
@@ -1057,18 +1125,21 @@ model CableRoutePoint {
   yMeters      Float
   zMeters      Float            @default(0)
   featureId    String?
+  riserId      String?
   createdAt    DateTime         @default(now())
   cableRoute   CableRoute       @relation(fields: [cableRouteId, scenarioId], references: [id, scenarioId], onDelete: Cascade)
   floor        Floor            @relation(fields: [floorId], references: [id], onDelete: Restrict)
   feature      BuildingFeature? @relation(fields: [featureId, floorId], references: [id, floorId], onDelete: Restrict)
+  riser        Riser?           @relation(fields: [riserId], references: [id], onDelete: Restrict)
 
   @@unique([cableRouteId, sequence])
   @@index([scenarioId, floorId])
   @@index([featureId, floorId])
+  @@index([riserId])
 }
 
 model Riser {
-  id           String    @id @default(cuid())
+  id           String            @id @default(cuid())
   buildingId   String
   code         String
   name         String
@@ -1076,9 +1147,10 @@ model Riser {
   xMeters      Float?
   yMeters      Float?
   metadataJson Json?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  building     Building  @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  building     Building          @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+  routePoints  CableRoutePoint[]
 
   @@unique([buildingId, code])
   @@index([buildingId, type])

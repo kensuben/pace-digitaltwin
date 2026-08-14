@@ -139,6 +139,14 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
                         : "Unknown"}
                     </dd>
                   </div>
+                  <div>
+                    <dt className="text-muted-foreground">Quoted unit price</dt>
+                    <dd>
+                      {model.unitPriceVnd === null
+                        ? "Not priced"
+                        : `${new Intl.NumberFormat("vi-VN").format(model.unitPriceVnd)} ₫`}
+                    </dd>
+                  </div>
                 </dl>
                 <Link
                   className="inline-flex rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent"

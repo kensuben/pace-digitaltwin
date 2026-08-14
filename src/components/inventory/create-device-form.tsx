@@ -18,12 +18,16 @@ interface CreateDeviceFormProps {
   scenarios: Array<{ id: string; name: string; isLocked: boolean }>;
   models: Array<{ id: string; sku: string; modelName: string }>;
   locations: LocationOption[];
+  onCreated?: () => void;
+  defaultModelId?: string;
 }
 
 export function CreateDeviceForm({
   scenarios,
   models,
   locations,
+  onCreated,
+  defaultModelId,
 }: CreateDeviceFormProps) {
   const router = useRouter();
   const [message, setMessage] = useState("");
@@ -31,9 +35,10 @@ export function CreateDeviceForm({
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     setSubmitting(true);
     setMessage("");
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
     const location = locations.find(
       (item) => item.key === form.get("location"),
     );
@@ -65,9 +70,10 @@ export function CreateDeviceForm({
       setMessage(result.errors?.[0]?.message ?? "Không thể tạo device.");
       return;
     }
-    event.currentTarget.reset();
+    formElement.reset();
     setMessage("Đã tạo device và sinh port theo model.");
     router.refresh();
+    onCreated?.();
   }
 
   return (
@@ -92,6 +98,7 @@ export function CreateDeviceForm({
         Model
         <select
           className="rounded-md border bg-background p-2"
+          defaultValue={defaultModelId}
           name="modelId"
           required
         >
@@ -144,7 +151,7 @@ export function CreateDeviceForm({
       </label>
       <div className="flex items-center gap-3 md:col-span-2">
         <Button disabled={submitting} type="submit">
-          {submitting ? "Đang tạo…" : "Create device"}
+          {submitting ? "Đang tạo…" : "Thêm thiết bị"}
         </Button>
         <span aria-live="polite" className="text-sm text-muted-foreground">
           {message}

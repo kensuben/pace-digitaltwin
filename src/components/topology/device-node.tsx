@@ -6,10 +6,16 @@ export interface DeviceNodeData extends Record<string, unknown> {
   model: string;
   category: string;
   location: string;
+  floorId: string;
+  floorCode: string;
+  floorName: string;
+  floorLevel: number;
+  buildingId: string;
   ports: Array<{
     id: string;
     name: string;
     media: string;
+    poeStandard: string;
     supportedSpeedsMbps: number[];
     connected: boolean;
   }>;

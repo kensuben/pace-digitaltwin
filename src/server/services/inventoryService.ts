@@ -36,11 +36,24 @@ export const createDeviceSchema = z.object({
 
 export const updateDeviceSchema = z
   .object({
+    hostname: z
+      .string()
+      .trim()
+      .min(2)
+      .max(80)
+      .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/)
+      .transform((value) => value.toUpperCase())
+      .optional(),
     displayName: z.string().trim().min(2).max(160).optional(),
     assetTag: z.string().trim().max(80).optional().nullable(),
     serialNumber: z.string().trim().max(120).optional().nullable(),
     managementIp: z.string().trim().max(64).optional().nullable(),
     status: z.enum(DeviceStatus).optional(),
+    buildingId: z.string().min(1).optional(),
+    floorId: z.string().min(1).optional(),
+    zoneId: z.string().min(1).optional().nullable(),
+    rackId: z.string().min(1).optional().nullable(),
+    rackUnitStart: z.number().int().positive().optional().nullable(),
     notes: nullableTrimmed,
   })
   .refine(
@@ -114,9 +127,10 @@ async function assertScenarioMutable(
   scenarioId: string,
   deviceId: string,
   repository: InventoryRepository,
+  allowLockedIdentityEdit = false,
 ) {
   const device = await getInventoryDevice(scenarioId, deviceId, repository);
-  if (device.scenario.isLocked) {
+  if (device.scenario.isLocked && !allowLockedIdentityEdit) {
     throw new AppError(
       "SCENARIO_LOCKED",
       "Locked scenarios cannot be changed.",
@@ -140,7 +154,57 @@ export async function updateInventoryDevice(
       400,
     );
   }
-  await assertScenarioMutable(scenarioId, deviceId, repository);
+  const fields = Object.keys(parsed.data);
+  const identityOnly =
+    fields.length > 0 &&
+    fields.every((field) => field === "hostname" || field === "displayName");
+  const current = await assertScenarioMutable(
+    scenarioId,
+    deviceId,
+    repository,
+    identityOnly,
+  );
+  const locationFields = ["buildingId", "floorId", "zoneId", "rackId"];
+  const changesLocation = fields.some((field) =>
+    locationFields.includes(field),
+  );
+  if (changesLocation) {
+    if (!parsed.data.buildingId || !parsed.data.floorId)
+      throw new AppError(
+        "INVALID_LOCATION",
+        "buildingId and floorId are required when changing location.",
+        400,
+      );
+    const context = await repository.getCreationContext({
+      scenarioId,
+      hostname: current.hostname,
+      displayName: current.displayName,
+      modelId: current.modelId,
+      buildingId: parsed.data.buildingId,
+      floorId: parsed.data.floorId,
+      zoneId: parsed.data.zoneId ?? null,
+      rackId: parsed.data.rackId ?? null,
+    });
+    if (!context.locationValid)
+      throw new AppError(
+        "INVALID_LOCATION",
+        "Building, floor, zone and rack must form one hierarchy.",
+        400,
+      );
+  }
+  if (parsed.data.hostname && repository.findHostnameConflict) {
+    const conflict = await repository.findHostnameConflict(
+      scenarioId,
+      parsed.data.hostname,
+      deviceId,
+    );
+    if (conflict)
+      throw new AppError(
+        "HOSTNAME_CONFLICT",
+        "Hostname already exists in this scenario.",
+        409,
+      );
+  }
   const updated = await repository.updateInScenario(
     deviceId,
     scenarioId,

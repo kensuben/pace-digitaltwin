@@ -92,12 +92,22 @@ export interface InventoryRepository {
   updateInScenario(
     id: string,
     scenarioId: string,
-    data: Prisma.DeviceInstanceUpdateInput,
+    data: Prisma.DeviceInstanceUncheckedUpdateInput,
   ): Promise<InventoryDetailRecord | null>;
   deleteInScenario(id: string, scenarioId: string): Promise<boolean>;
+  findHostnameConflict?(
+    scenarioId: string,
+    hostname: string,
+    excludedId: string,
+  ): Promise<boolean>;
   listOptions(): Promise<{
     scenarios: Array<{ id: string; name: string; isLocked: boolean }>;
-    models: Array<{ id: string; sku: string; modelName: string }>;
+    models: Array<{
+      id: string;
+      sku: string;
+      modelName: string;
+      category: string;
+    }>;
     vendors: Array<{ id: string; name: string }>;
     buildings: Prisma.BuildingGetPayload<{
       include: { floors: { include: { zones: { include: { racks: true } } } } };
@@ -224,20 +234,77 @@ export class PrismaInventoryRepository implements InventoryRepository {
   async updateInScenario(
     id: string,
     scenarioId: string,
-    data: Prisma.DeviceInstanceUpdateInput,
+    data: Prisma.DeviceInstanceUncheckedUpdateInput,
   ): Promise<InventoryDetailRecord | null> {
-    const result = await this.prisma.deviceInstance.updateMany({
-      where: { id, scenarioId },
-      data,
+    const before = await this.prisma.deviceInstance.findUnique({
+      where: { id_scenarioId: { id, scenarioId } },
+      select: { floorId: true },
+    });
+    if (!before) return null;
+    const result = await this.prisma.$transaction(async (tx) => {
+      if (typeof data.floorId === "string" && data.floorId !== before.floorId)
+        await tx.devicePlacement.deleteMany({
+          where: { deviceInstanceId: id, scenarioId },
+        });
+      return tx.deviceInstance.updateMany({ where: { id, scenarioId }, data });
     });
     return result.count === 0 ? null : this.findByIdInScenario(id, scenarioId);
   }
 
   async deleteInScenario(id: string, scenarioId: string): Promise<boolean> {
-    const result = await this.prisma.deviceInstance.deleteMany({
-      where: { id, scenarioId },
+    const ports = await this.prisma.port.findMany({
+      where: { deviceInstanceId: id, scenarioId },
+      select: { id: true },
     });
-    return result.count > 0;
+    const portIds = ports.map((port) => port.id);
+    return this.prisma.$transaction(async (tx) => {
+      const affectedLinks = await tx.physicalLink.findMany({
+        where: {
+          scenarioId,
+          OR: [
+            { sourcePortId: { in: portIds } },
+            { targetPortId: { in: portIds } },
+          ],
+        },
+        select: { id: true },
+      });
+      await tx.cableRoute.deleteMany({
+        where: {
+          scenarioId,
+          OR: [
+            { physicalLinkId: { in: affectedLinks.map((link) => link.id) } },
+            { sourceDeviceId: id },
+            { targetDeviceId: id },
+          ],
+        },
+      });
+      await tx.physicalLink.deleteMany({
+        where: {
+          scenarioId,
+          OR: [
+            { sourcePortId: { in: portIds } },
+            { targetPortId: { in: portIds } },
+          ],
+        },
+      });
+      const result = await tx.deviceInstance.deleteMany({
+        where: { id, scenarioId },
+      });
+      return result.count > 0;
+    });
+  }
+
+  async findHostnameConflict(
+    scenarioId: string,
+    hostname: string,
+    excludedId: string,
+  ) {
+    return Boolean(
+      await this.prisma.deviceInstance.findFirst({
+        where: { scenarioId, hostname, id: { not: excludedId } },
+        select: { id: true },
+      }),
+    );
   }
 
   async listOptions() {
@@ -247,7 +314,7 @@ export class PrismaInventoryRepository implements InventoryRepository {
         orderBy: { type: "asc" },
       }),
       this.prisma.deviceModel.findMany({
-        select: { id: true, sku: true, modelName: true },
+        select: { id: true, sku: true, modelName: true, category: true },
         orderBy: { modelName: "asc" },
       }),
       this.prisma.vendor.findMany({

@@ -3,8 +3,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 type Preview = {
   summary: {
-    currentModel: { modelName: string };
-    targetModel: { modelName: string };
+    currentModel: { modelName: string; unitPriceVnd: number | null };
+    targetModel: { modelName: string; unitPriceVnd: number | null };
     currentPortCount: number;
     targetPortCount: number;
   };
@@ -28,6 +28,8 @@ export function ModelSwap({
   const [targetModelId, setTargetModelId] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [message, setMessage] = useState("");
+  const formatVnd = (value: number) =>
+    new Intl.NumberFormat("vi-VN").format(value) + " ₫";
   async function request(path: string, commitWithWarnings = false) {
     setMessage("");
     const response = await fetch(`/api/devices/${deviceId}/swap-model${path}`, {
@@ -88,6 +90,13 @@ export function ModelSwap({
             {preview.summary.targetPortCount}; mapped{" "}
             {preview.mapping.mappings.length}; unmapped{" "}
             {preview.mapping.unmapped.length}
+          </p>
+          <p className="rounded bg-secondary p-2 font-semibold">
+            Cost impact:{" "}
+            {preview.summary.currentModel.unitPriceVnd === null ||
+            preview.summary.targetModel.unitPriceVnd === null
+              ? "Missing model price"
+              : `${formatVnd(preview.summary.currentModel.unitPriceVnd)} → ${formatVnd(preview.summary.targetModel.unitPriceVnd)} (${formatVnd(preview.summary.targetModel.unitPriceVnd - preview.summary.currentModel.unitPriceVnd)})`}
           </p>
           {preview.findings.map((finding) => (
             <p

@@ -63,3 +63,62 @@ export const devicePlacementDtoSchema = z.object({
   rotationY: z.number().finite().default(0),
   rotationZ: z.number().finite().default(0),
 });
+
+export const spatialZoneDtoSchema = z.object({
+  scenarioId: z.string().min(1),
+  zoneId: z.string().min(1),
+  floorId: z.string().min(1),
+  floorMapId: z.string().min(1),
+  geometry: localGeometrySchema.refine(
+    (value) => value.type === "POLYGON" || value.type === "RECTANGLE",
+    "A spatial zone must be a polygon or rectangle.",
+  ),
+  labelX: coordinate.optional().nullable(),
+  labelY: coordinate.optional().nullable(),
+});
+
+export const riserDtoSchema = z.object({
+  scenarioId: z.string().min(1),
+  buildingId: z.string().min(1),
+  code: z.string().trim().min(1).max(40),
+  name: z.string().trim().min(1).max(120),
+  type: z.enum(["DATA", "POWER", "FIRE", "HVAC", "MIXED"]),
+  xMeters: coordinate.optional().nullable(),
+  yMeters: coordinate.optional().nullable(),
+});
+
+export const cableRouteDtoSchema = z.object({
+  scenarioId: z.string().min(1),
+  physicalLinkId: z.string().min(1).optional().nullable(),
+  routeType: z.enum(["COPPER", "FIBER", "DAC", "AOC", "POWER", "OTHER"]),
+  sourceDeviceId: z.string().min(1).optional().nullable(),
+  targetDeviceId: z.string().min(1).optional().nullable(),
+  status: z.enum(["PLANNED", "INSTALLED", "VERIFIED"]).default("PLANNED"),
+  points: z
+    .array(
+      z.object({
+        floorId: z.string().min(1),
+        xMeters: coordinate,
+        yMeters: coordinate,
+        zMeters: coordinate.default(0),
+        featureId: z.string().min(1).optional().nullable(),
+        riserId: z.string().min(1).optional().nullable(),
+      }),
+    )
+    .min(2),
+});
+
+export const rackPlacementDtoSchema = z.object({
+  rackId: z.string().min(1),
+  zoneId: z.string().min(1),
+  scenarioId: z.string().min(1),
+  floorId: z.string().min(1),
+  floorMapId: z.string().min(1).optional().nullable(),
+  xMeters: coordinate,
+  yMeters: coordinate,
+  zMeters: coordinate.default(0),
+  widthMeters: z.number().finite().positive().max(10).default(0.6),
+  depthMeters: z.number().finite().positive().max(10).default(1),
+  heightMeters: z.number().finite().positive().max(10).default(2),
+  rotationDegrees: z.number().finite().default(0),
+});

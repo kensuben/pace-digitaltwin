@@ -20,14 +20,14 @@ export default async function FloorMapPage({
       <div className="space-y-6">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
-            SP-2 · 2D
+            SP-3 · Spatial planning
           </p>
           <h1 className="mt-2 text-4xl font-bold">
             {data.floor.building.code} / {data.floor.code}
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Zoom, calibrate và place thiết bị bằng canonical floor coordinates
-            (meters).
+            Draw zones, measure distances, route cables và place thiết bị bằng
+            canonical floor coordinates (meters).
           </p>
         </div>
         <FloorMapEditor data={data} scenarioId={scenarioId} />
