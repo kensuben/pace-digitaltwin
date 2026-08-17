@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Boxes, CircleDollarSign, FlaskConical, Map, Network, WandSparkles } from "lucide-react";
+import { ArrowRight, Boxes, CircleDollarSign, FlaskConical, Map, Network, Server, WandSparkles } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { PrismaScenarioRepository } from "@/server/repositories/scenarioRepository";
@@ -13,6 +13,7 @@ const modules = [
   { href: "/scenarios", title: "Scenario Lab", text: "Clone, so sánh và thử các kịch bản failure nâng cao.", icon: FlaskConical },
   { href: "/inventory", title: "Managed Inventory", text: "Quản lý thiết bị và trạng thái triển khai theo tầng.", icon: Boxes },
   { href: "/drawings", title: "Spatial Planning", text: "Bản vẽ, vị trí thiết bị và tuyến cáp đa tầng.", icon: Map },
+  { href: "/racks", title: "B2 Rack Designer", text: "Lắp thiết bị trực quan lên tủ rack theo từng đơn vị U.", icon: Server },
 ];
 
 export default async function HomePage() {

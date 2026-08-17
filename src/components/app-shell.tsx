@@ -58,6 +58,11 @@ const navigation = [
         label: "Drawings",
         description: "Bản vẽ, floor map và spatial editor",
       },
+      {
+        href: "/racks",
+        label: "B2 Rack Designer",
+        description: "Bố trí thiết bị trực quan theo rack unit",
+      },
     ],
   },
   {

@@ -68,6 +68,7 @@ This roadmap resolves the dependency order between SOP-SC181-001 network phases 
 - Done: floor spatial read model exposes zones, routes and building risers.
 - Done: direct polygon-zone and cable-route drawing, saved-layer rendering and measurement tools in the 2D editor.
 - Done: rack placement with physical footprint and direct multi-floor route creation through building risers.
+- Done: interactive B2 rack elevation designer with scenario-aware device placement, drag/drop, rack-unit capacity and overlap validation.
 - Reference evidence: PACE Cô Giang A2 sheets show the B2 server room and repeated stair/elevator service core; the 118-page interior package confirms floor/room wayfinding. Coordinates remain user-calibrated rather than inferred from drawings.
 - Demo data: the Proposed scenario is populated with 50 managed devices from the latest Netgear/Sophos/Maipu/UniFi quotation; Cisco and MikroTik quotation models are available in Catalog for comparison.
 - Acceptance: manual geometry, calibrated measurement, rack placement and multi-floor routes pass with the imported PACE reference sheets.
