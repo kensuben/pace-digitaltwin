@@ -34,6 +34,40 @@ test("renders the M0 foundation page", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("keeps desktop menus exclusive and provides a mobile navigation drawer", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  const designMenu = page.getByRole("button", { name: "Thiết kế" });
+  const spaceMenu = page.getByRole("button", { name: "Không gian" });
+  await designMenu.click();
+  await expect(designMenu).toHaveAttribute("aria-expanded", "true");
+  await spaceMenu.click();
+  await expect(designMenu).toHaveAttribute("aria-expanded", "false");
+  await expect(spaceMenu).toHaveAttribute("aria-expanded", "true");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Mở menu điều hướng" })).toBeVisible();
+  await page.getByRole("button", { name: "Mở menu điều hướng" }).click();
+  await expect(page.getByRole("complementary", { name: "Điều hướng mobile" })).toBeVisible();
+  await page.getByRole("button", { name: "Tài sản" }).click();
+  await expect(page.getByRole("link", { name: /Inventory/ })).toBeVisible();
+  const hasHorizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(hasHorizontalOverflow).toBe(false);
+});
+
+test("renders inventory as readable cards on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/inventory?scenarioId=scenario-proposed");
+  await expect(page.getByText(/tối đa 50 thiết bị mỗi trang/)).toBeVisible();
+  await expect(page.getByRole("article").first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "CORE-01" })).toBeVisible();
+});
+
 test("exposes a liveness endpoint", async ({ request }) => {
   const response = await request.get("/api/health/live");
   expect(response.ok()).toBe(true);

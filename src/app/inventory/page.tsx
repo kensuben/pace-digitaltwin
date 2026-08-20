@@ -35,6 +35,23 @@ export default async function InventoryPage({
     listInventory(parseInventoryFilters(values)),
     getInventoryOptions(),
   ]);
+  const pageSize = 50;
+  const requestedPage = Number(first(query.page) ?? "1");
+  const totalPages = Math.max(1, Math.ceil(devices.length / pageSize));
+  const currentPage = Math.min(
+    Math.max(Number.isFinite(requestedPage) ? Math.trunc(requestedPage) : 1, 1),
+    totalPages,
+  );
+  const visibleDevices = devices.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+  const pageHref = (page: number) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(values)) if (value) params.set(key, value);
+    params.set("page", String(page));
+    return `/inventory?${params.toString()}`;
+  };
   const locations: LocationOption[] = [];
   for (const building of options.buildings) {
     for (const floor of building.floors) {
@@ -153,11 +170,19 @@ export default async function InventoryPage({
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>{devices.length} devices</CardTitle>
+          <CardHeader className="flex-row items-center justify-between gap-3">
+            <div>
+              <CardTitle>{devices.length} devices</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">Trang {currentPage}/{totalPages} · tối đa {pageSize} thiết bị mỗi trang</p>
+            </div>
+            <div className="flex gap-2">
+              {currentPage > 1 && <Link className="rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-secondary" href={pageHref(currentPage - 1)}>← Trước</Link>}
+              {currentPage < totalPages && <Link className="rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-secondary" href={pageHref(currentPage + 1)}>Sau →</Link>}
+            </div>
           </CardHeader>
-          <CardContent className="overflow-x-auto">
-            <table className="w-full min-w-5xl text-left text-sm">
+          <CardContent>
+            <div className="hidden overflow-x-auto md:block">
+            <table className="w-full min-w-[64rem] text-left text-sm">
               <thead className="text-muted-foreground">
                 <tr>
                   <th className="pb-3">Hostname</th>
@@ -170,7 +195,7 @@ export default async function InventoryPage({
                 </tr>
               </thead>
               <tbody>
-                {devices.map((device) => (
+                {visibleDevices.map((device) => (
                   <tr
                     className="border-t"
                     key={`${device.scenarioId}:${device.id}`}
@@ -201,6 +226,18 @@ export default async function InventoryPage({
                 ))}
               </tbody>
             </table>
+            </div>
+            <div className="grid gap-3 md:hidden">
+              {visibleDevices.map((device) => (
+                <article className="rounded-xl border bg-background/45 p-4" key={`${device.scenarioId}:${device.id}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0"><Link className="block truncate font-mono text-sm font-bold text-primary" href={`/inventory/${device.id}?scenarioId=${device.scenarioId}`}>{device.hostname}</Link><p className="mt-1 truncate text-xs text-muted-foreground">{device.model.vendor.name} · {device.model.modelName}</p></div>
+                    <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary">{device.status}</span>
+                  </div>
+                  <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 border-t pt-3 text-xs"><div><dt className="text-muted-foreground">Category</dt><dd className="mt-0.5 font-semibold">{device.model.category}</dd></div><div><dt className="text-muted-foreground">Location</dt><dd className="mt-0.5 font-semibold">{device.building.code} / {device.floor.code}</dd></div><div><dt className="text-muted-foreground">Management IP</dt><dd className="mt-0.5 font-mono">{device.managementIp ?? "—"}</dd></div><div><dt className="text-muted-foreground">Scenario</dt><dd className="mt-0.5 font-semibold">{device.scenario.name}{device.scenario.isLocked ? " 🔒" : ""}</dd></div></dl>
+                </article>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
