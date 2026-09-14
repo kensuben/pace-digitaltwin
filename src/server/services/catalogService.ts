@@ -58,6 +58,21 @@ export const updateCatalogModelSchema = createCatalogModelSchema
   .omit({ vendorId: true, sku: true })
   .partial();
 
+export const createVendorSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .min(2)
+    .max(40)
+    .regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/, "Vendor code may contain letters, numbers, hyphens and underscores.")
+    .transform((value) => value.toUpperCase()),
+  name: z.string().trim().min(2).max(120),
+  website: z.preprocess(
+    (value) => value === "" ? null : value,
+    z.url().optional().nullable(),
+  ),
+});
+
 export async function listCatalog(
   filters: CatalogFilters,
   repository: CatalogRepository = new PrismaCatalogRepository(),
@@ -100,6 +115,31 @@ export async function createCatalogModel(
     vendor: { connect: { id: vendorId } },
     portProfiles: { create: portProfiles },
   });
+}
+
+export async function createVendor(
+  input: unknown,
+  repository: CatalogRepository = new PrismaCatalogRepository(),
+) {
+  const parsed = createVendorSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new AppError(
+      "INVALID_VENDOR",
+      parsed.error.issues[0]?.message ?? "Invalid vendor.",
+      400,
+    );
+  }
+  const conflict = await repository.findVendorConflict(parsed.data.code, parsed.data.name);
+  if (conflict) {
+    throw new AppError(
+      "VENDOR_CONFLICT",
+      conflict.code === parsed.data.code
+        ? `Vendor code ${parsed.data.code} already exists.`
+        : `Vendor name ${parsed.data.name} already exists.`,
+      409,
+    );
+  }
+  return repository.createVendor(parsed.data);
 }
 
 export async function updateCatalogModel(

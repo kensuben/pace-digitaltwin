@@ -1,13 +1,16 @@
 "use client";
 
-import { Box, CheckCircle2, GripVertical, RotateCcw, Server, TriangleAlert } from "lucide-react";
+import { Box, CheckCircle2, Cpu, GripVertical, RotateCcw, Server, TriangleAlert } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+
+import { VirtualMachineManager, type VirtualMachineDto } from "@/components/racks/virtual-machine-manager";
 
 type RackDevice = {
   id: string; hostname: string; displayName: string; category: string; sku: string;
   modelName: string; vendorName: string; rackUnits: number; rackId: string | null;
   rackUnitStart: number | null;
+  virtualMachines: VirtualMachineDto[];
 };
 type RackDto = { id: string; code: string; name: string; rackUnits: number; devices: RackDevice[] };
 
@@ -19,9 +22,16 @@ export function RackDesigner({ scenarioId, isLocked, racks: initialRacks, unplac
   const [unplaced, setUnplaced] = useState(initialUnplaced);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [vmServerId, setVmServerId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const allDevices = useMemo(() => [...unplaced, ...racks.flatMap((rack) => rack.devices)], [racks, unplaced]);
   const selected = allDevices.find((device) => device.id === selectedId) ?? null;
+  const vmServer = allDevices.find((device) => device.id === vmServerId) ?? null;
+
+  function updateVirtualMachines(deviceId: string, virtualMachines: VirtualMachineDto[]) {
+    setUnplaced((items) => items.map((device) => device.id === deviceId ? { ...device, virtualMachines } : device));
+    setRacks((items) => items.map((rack) => ({ ...rack, devices: rack.devices.map((device) => device.id === deviceId ? { ...device, virtualMachines } : device) })));
+  }
 
   async function persist(device: RackDevice, rack: RackDto | null, rackUnitStart?: number) {
     if (isLocked || isPending) return;
@@ -62,17 +72,26 @@ export function RackDesigner({ scenarioId, isLocked, racks: initialRacks, unplac
         </div>
         {isLocked && <p className="rounded-lg bg-amber-500/10 p-3 text-sm font-medium text-amber-700">Scenario đang khóa. Rack chỉ có thể xem.</p>}
       </aside>
-      <section className="grid gap-6 2xl:grid-cols-2">{racks.map((rack) => <RackCabinet key={rack.id} rack={rack} selected={selected} disabled={isLocked || isPending} onPlace={placeAt} onSelect={setSelectedId} onRemove={(device) => void persist(device, null)}/>)}
+      <section className="grid gap-6 2xl:grid-cols-2">{racks.map((rack) => <RackCabinet key={rack.id} rack={rack} selected={selected} disabled={isLocked || isPending} onManageVms={setVmServerId} onPlace={placeAt} onSelect={setSelectedId} onRemove={(device) => void persist(device, null)}/>)}
         {racks.length === 0 && <div className="rounded-2xl border border-dashed p-12 text-center text-muted-foreground">Chưa có rack nào được khai báo trong Server Room B2.</div>}
       </section>
     </div>
+    {vmServer?.category === "SERVER" && (
+      <VirtualMachineManager
+        isLocked={isLocked}
+        onChanged={(machines) => updateVirtualMachines(vmServer.id, machines)}
+        onClose={() => setVmServerId(null)}
+        scenarioId={scenarioId}
+        server={vmServer}
+      />
+    )}
   </div>;
 }
 
-function RackCabinet({ rack, selected, disabled, onPlace, onSelect, onRemove }: {
+function RackCabinet({ rack, selected, disabled, onManageVms, onPlace, onSelect, onRemove }: {
   rack: RackDto; selected: RackDevice | null; disabled: boolean;
   onPlace: (rack: RackDto, unit: number, device?: RackDevice | null) => void;
-  onSelect: (id: string | null) => void; onRemove: (device: RackDevice) => void;
+  onManageVms: (id: string) => void; onSelect: (id: string | null) => void; onRemove: (device: RackDevice) => void;
 }) {
   const unitHeight = 30;
   const occupied = new Set(rack.devices.flatMap((device) => Array.from({ length: device.rackUnits }, (_, index) => (device.rackUnitStart ?? 0) + index)));
@@ -80,7 +99,7 @@ function RackCabinet({ rack, selected, disabled, onPlace, onSelect, onRemove }: 
     <div className="flex items-center justify-between border-b border-slate-700 bg-slate-900 px-4 py-3 text-white"><div><p className="font-mono text-xs text-cyan-400">SERVER ROOM B2</p><h3 className="font-bold">{rack.code}</h3><p className="text-xs text-slate-400">{rack.name}</p></div><div className="rounded-lg border border-slate-600 px-2 py-1 font-mono text-sm">{rack.rackUnits}U</div></div>
     <div className="relative bg-slate-900/80" style={{ height: rack.rackUnits * unitHeight }}>
       {Array.from({ length: rack.rackUnits }, (_, index) => rack.rackUnits - index).map((unit) => <button aria-label={`Đặt thiết bị tại U${unit}`} className={`absolute left-0 right-0 flex items-center border-b border-slate-700/80 text-left transition ${selected && !occupied.has(unit) ? "cursor-pointer hover:bg-cyan-400/15" : "cursor-default"}`} disabled={disabled || !selected || occupied.has(unit)} key={unit} onClick={() => onPlace(rack, unit)} onDragOver={(event) => { if (!disabled && !occupied.has(unit)) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const raw = event.dataTransfer.getData("application/x-rack-device"); if (raw) onPlace(rack, unit, JSON.parse(raw) as RackDevice); }} style={{ height: unitHeight, top: (rack.rackUnits - unit) * unitHeight }} type="button"><span className="w-11 shrink-0 pl-2 font-mono text-[10px] text-slate-500">U{unit}</span><span className="h-px flex-1 bg-slate-700/50"/></button>)}
-      {rack.devices.map((device) => { if (!device.rackUnitStart) return null; const top = (rack.rackUnits - (device.rackUnitStart + device.rackUnits - 1)) * unitHeight; return <div className="absolute left-11 right-2 z-10 flex items-center gap-2 overflow-hidden rounded border border-cyan-300/50 bg-gradient-to-r from-cyan-950 to-slate-800 px-2 text-white shadow-lg" draggable={!disabled} key={device.id} onClick={() => onSelect(device.id)} onDragStart={(event) => event.dataTransfer.setData("application/x-rack-device", JSON.stringify(device))} style={{ height: device.rackUnits * unitHeight - 2, top: top + 1 }}><GripVertical className="shrink-0 text-cyan-400" size={14}/><div className="min-w-0 flex-1"><p className="truncate font-mono text-xs font-bold text-cyan-100">{device.hostname}</p><p className="truncate text-[10px] text-slate-400">{device.sku} · {device.rackUnits}U</p></div>{!disabled && <button aria-label={`Đưa ${device.hostname} ra khỏi rack`} className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-white" onClick={(event) => { event.stopPropagation(); onRemove(device); }} title="Đưa ra khỏi rack" type="button"><RotateCcw size={13}/></button>}</div>; })}
+      {rack.devices.map((device) => { if (!device.rackUnitStart) return null; const top = (rack.rackUnits - (device.rackUnitStart + device.rackUnits - 1)) * unitHeight; return <div className={`absolute left-11 right-2 z-10 flex items-center gap-2 overflow-hidden rounded border px-2 text-white shadow-lg ${device.category === "SERVER" ? "border-violet-300/60 bg-gradient-to-r from-violet-950 to-slate-800" : "border-cyan-300/50 bg-gradient-to-r from-cyan-950 to-slate-800"}`} draggable={!disabled} key={device.id} onClick={() => onSelect(device.id)} onDragStart={(event) => event.dataTransfer.setData("application/x-rack-device", JSON.stringify(device))} style={{ height: device.rackUnits * unitHeight - 2, top: top + 1 }}><GripVertical className={`shrink-0 ${device.category === "SERVER" ? "text-violet-300" : "text-cyan-400"}`} size={14}/><div className="min-w-0 flex-1"><p className="truncate font-mono text-xs font-bold text-cyan-100">{device.hostname}</p><p className="truncate text-[10px] text-slate-400">{device.sku} · {device.rackUnits}U</p></div>{device.category === "SERVER" && <button aria-label={`Quản lý Virtual Machines của ${device.hostname}`} className="flex shrink-0 items-center gap-1 rounded bg-violet-400/15 px-1.5 py-1 text-[9px] font-bold text-violet-200 hover:bg-violet-400/25" onClick={(event) => { event.stopPropagation(); onManageVms(device.id); }} title="Quản lý Virtual Machines" type="button"><Cpu size={11}/>{device.virtualMachines.length} VM</button>}{!disabled && <button aria-label={`Đưa ${device.hostname} ra khỏi rack`} className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-white" onClick={(event) => { event.stopPropagation(); onRemove(device); }} title="Đưa ra khỏi rack" type="button"><RotateCcw size={13}/></button>}</div>; })}
     </div>
     <div className="flex items-center justify-between bg-slate-900 px-4 py-2 text-[11px] text-slate-400"><span>Front elevation</span><span>{rack.devices.length} thiết bị</span></div>
   </div>;

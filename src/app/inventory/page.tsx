@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
 import { CreateDeviceDialog } from "@/components/inventory/create-device-dialog";
+import { EditInventoryButton } from "@/components/inventory/edit-inventory-dialog";
 import { type LocationOption } from "@/components/inventory/create-device-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DeviceCategory, DeviceStatus } from "@/generated/prisma/enums";
@@ -55,17 +56,14 @@ export default async function InventoryPage({
   const locations: LocationOption[] = [];
   for (const building of options.buildings) {
     for (const floor of building.floors) {
-      if (floor.zones.length === 0) {
-        locations.push({
-          key: `${building.id}:${floor.id}`,
-          label: `${building.code} / ${floor.code}`,
-          buildingId: building.id,
-          floorId: floor.id,
-          zoneId: null,
-          rackId: null,
-        });
-        continue;
-      }
+      locations.push({
+        key: `${building.id}:${floor.id}`,
+        label: `${building.code} / ${floor.code}`,
+        buildingId: building.id,
+        floorId: floor.id,
+        zoneId: null,
+        rackId: null,
+      });
       for (const zone of floor.zones) {
         locations.push({
           key: `${building.id}:${floor.id}:${zone.id}`,
@@ -88,6 +86,21 @@ export default async function InventoryPage({
       }
     }
   }
+  const editData = (device: (typeof visibleDevices)[number]) => ({
+    id: device.id, scenarioId: device.scenarioId, hostname: device.hostname,
+    displayName: device.displayName, assetTag: device.assetTag,
+    serialNumber: device.serialNumber, managementIp: device.managementIp,
+    status: device.status, rackUnitStart: device.rackUnitStart, notes: device.notes,
+    unitPriceOverrideVnd: device.unitPriceOverrideVnd,
+    priceVatRateOverrideBps: device.priceVatRateOverrideBps,
+    pricingSourceOverride: device.pricingSourceOverride,
+    currentLocationKey: [device.buildingId, device.floorId, device.zoneId, device.rackId]
+      .filter(Boolean).join(":"),
+    modelName: device.model.modelName, modelSku: device.model.sku,
+    modelUnitPriceVnd: device.model.unitPriceVnd,
+    modelVatRateBps: device.model.priceVatRateBps,
+    locked: device.scenario.isLocked,
+  });
 
   return (
     <AppShell>
@@ -192,6 +205,7 @@ export default async function InventoryPage({
                   <th>Management IP</th>
                   <th>Status</th>
                   <th>Scenario</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -222,6 +236,7 @@ export default async function InventoryPage({
                       {device.scenario.name}
                       {device.scenario.isLocked ? " 🔒" : ""}
                     </td>
+                    <td className="text-right"><EditInventoryButton device={editData(device)} locations={locations}/></td>
                   </tr>
                 ))}
               </tbody>
@@ -235,6 +250,7 @@ export default async function InventoryPage({
                     <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary">{device.status}</span>
                   </div>
                   <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 border-t pt-3 text-xs"><div><dt className="text-muted-foreground">Category</dt><dd className="mt-0.5 font-semibold">{device.model.category}</dd></div><div><dt className="text-muted-foreground">Location</dt><dd className="mt-0.5 font-semibold">{device.building.code} / {device.floor.code}</dd></div><div><dt className="text-muted-foreground">Management IP</dt><dd className="mt-0.5 font-mono">{device.managementIp ?? "—"}</dd></div><div><dt className="text-muted-foreground">Scenario</dt><dd className="mt-0.5 font-semibold">{device.scenario.name}{device.scenario.isLocked ? " 🔒" : ""}</dd></div></dl>
+                  {!device.scenario.isLocked && <div className="mt-3 flex justify-end border-t pt-3"><EditInventoryButton compact device={editData(device)} locations={locations}/></div>}
                 </article>
               ))}
             </div>

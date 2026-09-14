@@ -6,6 +6,7 @@ import type {
 } from "@/server/repositories/catalogRepository";
 import {
   createCatalogModel,
+  createVendor,
   deleteCatalogModel,
   getCatalogModel,
   listCatalog,
@@ -29,6 +30,8 @@ function repository(overrides: Partial<CatalogRepository> = {}) {
     create: vi.fn().mockResolvedValue(model()),
     update: vi.fn().mockResolvedValue(model()),
     delete: vi.fn().mockResolvedValue(undefined),
+    findVendorConflict: vi.fn().mockResolvedValue(null),
+    createVendor: vi.fn().mockResolvedValue({ id: "vendor-new", code: "CISCO", name: "Cisco", website: null }),
     ...overrides,
   } as CatalogRepository;
 }
@@ -88,6 +91,21 @@ describe("catalogService", () => {
       code: "INVALID_MODEL",
       status: 400,
     });
+  });
+
+  it("normalizes and creates a new vendor", async () => {
+    const repo = repository();
+    await createVendor({ code: " cisco ", name: " Cisco ", website: "" }, repo);
+    expect(repo.findVendorConflict).toHaveBeenCalledWith("CISCO", "Cisco");
+    expect(repo.createVendor).toHaveBeenCalledWith({ code: "CISCO", name: "Cisco", website: null });
+  });
+
+  it("rejects invalid and duplicate vendors", async () => {
+    await expect(createVendor({ code: "bad code", name: "Vendor" }, repository())).rejects.toMatchObject({ code: "INVALID_VENDOR", status: 400 });
+    const duplicateRepo = repository({
+      findVendorConflict: vi.fn().mockResolvedValue({ id: "vendor-1", code: "CISCO", name: "Cisco" }),
+    });
+    await expect(createVendor({ code: "cisco", name: "Cisco Systems" }, duplicateRepo)).rejects.toMatchObject({ code: "VENDOR_CONFLICT", status: 409 });
   });
 
   it("updates only custom models", async () => {

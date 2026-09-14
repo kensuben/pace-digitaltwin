@@ -32,6 +32,14 @@ enum DeviceStatus {
   RETIRED
 }
 
+enum VirtualMachineStatus {
+  PLANNED
+  RUNNING
+  STOPPED
+  SUSPENDED
+  DECOMMISSIONED
+}
+
 enum ScenarioType {
   BASELINE
   PROPOSED
@@ -508,6 +516,7 @@ model Scenario {
   vlanMemberships    VlanMembership[]
   validationFindings ValidationFinding[]
   costItems          ProjectCostItem[]
+  virtualMachines    VirtualMachine[]
 
   @@index([type, isLocked])
 }
@@ -565,6 +574,7 @@ model DeviceInstance {
   sourceRoutes  CableRoute[]      @relation("CableRouteSource")
   targetRoutes  CableRoute[]      @relation("CableRouteTarget")
   lagGroups     LagGroup[]
+  virtualMachines VirtualMachine[]
 
   @@unique([id, scenarioId])
   @@unique([id, scenarioId, floorId])
@@ -574,6 +584,31 @@ model DeviceInstance {
   @@index([scenarioId, status])
   @@index([buildingId, floorId])
   @@index([modelId])
+}
+
+model VirtualMachine {
+  id             String               @id @default(cuid())
+  scenarioId     String
+  hostDeviceId   String
+  hostname       String
+  displayName    String
+  role           String?
+  operatingSystem String?
+  vcpuCount      Int                  @default(1)
+  memoryMb       Int                  @default(1024)
+  storageGb      Int                  @default(20)
+  ipAddress      String?
+  status         VirtualMachineStatus @default(PLANNED)
+  notes          String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  scenario       Scenario             @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  host           DeviceInstance       @relation(fields: [hostDeviceId, scenarioId], references: [id, scenarioId], onDelete: Cascade)
+
+  @@unique([id, scenarioId])
+  @@unique([scenarioId, hostname])
+  @@index([hostDeviceId, scenarioId])
+  @@index([scenarioId, status])
 }
 
 model Port {

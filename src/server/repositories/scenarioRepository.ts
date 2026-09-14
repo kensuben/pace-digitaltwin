@@ -81,7 +81,7 @@ export class PrismaScenarioRepository implements ScenarioRepository {
       const source = await tx.scenario.findUnique({
         where: { id: sourceId },
         include: {
-          devices: { include: { ports: true } },
+          devices: { include: { ports: true, virtualMachines: true } },
           physicalLinks: true,
           lagGroups: { include: { members: true } },
           vlans: true,
@@ -130,6 +130,24 @@ export class PrismaScenarioRepository implements ScenarioRepository {
               roleHint: port.roleHint, breakoutCapable: port.breakoutCapable,
               negotiatedSpeedMbps: port.negotiatedSpeedMbps, adminStatus: port.adminStatus,
               operationalStatus: port.operationalStatus, description: port.description,
+            },
+          });
+        }
+        for (const vm of device.virtualMachines) {
+          await tx.virtualMachine.create({
+            data: {
+              scenarioId: target.id,
+              hostDeviceId: id,
+              hostname: vm.hostname,
+              displayName: vm.displayName,
+              role: vm.role,
+              operatingSystem: vm.operatingSystem,
+              vcpuCount: vm.vcpuCount,
+              memoryMb: vm.memoryMb,
+              storageGb: vm.storageGb,
+              ipAddress: vm.ipAddress,
+              status: vm.status,
+              notes: vm.notes,
             },
           });
         }

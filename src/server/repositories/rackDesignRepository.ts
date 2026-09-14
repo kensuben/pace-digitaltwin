@@ -11,7 +11,10 @@ const rackRoomInclude = {
           racks: {
             include: {
               devices: {
-                include: { model: { include: { vendor: true } } },
+                include: {
+                  model: { include: { vendor: true } },
+                  virtualMachines: { orderBy: { hostname: "asc" as const } },
+                },
                 orderBy: [{ rackUnitStart: "desc" as const }, { hostname: "asc" as const }],
               },
             },
@@ -37,6 +40,11 @@ export interface RackDesignRepository {
       displayName: string;
       rackId: string | null;
       rackUnitStart: number | null;
+      virtualMachines: Array<{
+        id: string; hostname: string; displayName: string; role: string | null;
+        operatingSystem: string | null; vcpuCount: number; memoryMb: number;
+        storageGb: number; ipAddress: string | null; status: string; notes: string | null;
+      }>;
       model: { category: string; rackUnits: number | null; sku: string; modelName: string; vendor: { name: string } };
     }>;
   }>;
@@ -66,6 +74,10 @@ export class PrismaRackDesignRepository implements RackDesignRepository {
         where: { scenarioId, floor: { code: "B2" }, rackId: null },
         select: {
           id: true, hostname: true, displayName: true, rackId: true, rackUnitStart: true,
+          virtualMachines: {
+            select: { id: true, hostname: true, displayName: true, role: true, operatingSystem: true, vcpuCount: true, memoryMb: true, storageGb: true, ipAddress: true, status: true, notes: true },
+            orderBy: { hostname: "asc" },
+          },
           model: { select: { category: true, rackUnits: true, sku: true, modelName: true, vendor: { select: { name: true } } } },
         },
         orderBy: { hostname: "asc" },

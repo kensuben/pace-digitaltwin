@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
 import { CreateModelForm } from "@/components/catalog/create-model-form";
+import { EditCatalogModelButton } from "@/components/catalog/edit-model-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DeviceCategory } from "@/generated/prisma/enums";
 import { getInventoryOptions } from "@/server/services/inventoryService";
@@ -92,35 +93,37 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
 
         <section
           aria-label="Catalog models"
-          className="grid gap-5 lg:grid-cols-2"
+          className="grid items-stretch gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5"
         >
           {models.map((model) => (
-            <Card key={model.id}>
-              <CardHeader>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm text-primary">{model.vendor.name}</p>
-                    <CardTitle className="mt-1 text-xl">
-                      {model.modelName}
-                    </CardTitle>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {model.sku}
-                    </p>
-                  </div>
-                  <span className="rounded-full border px-3 py-1 text-xs font-semibold">
+            <Card className="h-full gap-4 py-4" key={model.id}>
+              <CardHeader className="gap-3 px-4">
+                <div className="flex min-w-0 items-center justify-between gap-2">
+                  <p className="truncate text-xs font-semibold text-primary" title={model.vendor.name}>
+                    {model.vendor.name}
+                  </p>
+                  <span className="shrink-0 rounded-full border px-2 py-1 text-[9px] font-bold leading-none">
                     {model.specStatus}
                   </span>
                 </div>
+                <div className="min-w-0">
+                  <CardTitle className="line-clamp-2 min-h-10 text-base leading-5" title={model.modelName}>
+                    {model.modelName}
+                  </CardTitle>
+                  <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground" title={model.sku}>
+                    {model.sku}
+                  </p>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <dl className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <dt className="text-muted-foreground">Category</dt>
-                    <dd>{model.category}</dd>
+              <CardContent className="flex flex-1 flex-col gap-4 px-4">
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-3 border-t pt-3 text-xs">
+                  <div className="min-w-0">
+                    <dt className="text-[10px] text-muted-foreground">Category</dt>
+                    <dd className="mt-0.5 truncate font-semibold" title={model.category}>{model.category}</dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">Ports</dt>
-                    <dd>
+                    <dt className="text-[10px] text-muted-foreground">Ports</dt>
+                    <dd className="mt-0.5 font-semibold">
                       {model.portProfiles.reduce(
                         (sum, item) => sum + item.count,
                         0,
@@ -128,32 +131,48 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">Instances</dt>
-                    <dd>{model._count.instances}</dd>
+                    <dt className="text-[10px] text-muted-foreground">Instances</dt>
+                    <dd className="mt-0.5 font-semibold">{model._count.instances}</dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">Switching</dt>
-                    <dd>
+                    <dt className="text-[10px] text-muted-foreground">Switching</dt>
+                    <dd className="mt-0.5 truncate font-semibold">
                       {model.switchingCapacityGbps
                         ? `${model.switchingCapacityGbps} Gbps`
                         : "Unknown"}
                     </dd>
                   </div>
-                  <div>
-                    <dt className="text-muted-foreground">Quoted unit price</dt>
-                    <dd>
+                  <div className="col-span-2 rounded-lg bg-secondary/45 px-3 py-2">
+                    <dt className="text-[10px] text-muted-foreground">Quoted unit price</dt>
+                    <dd className="mt-0.5 truncate font-semibold text-primary">
                       {model.unitPriceVnd === null
                         ? "Not priced"
                         : `${new Intl.NumberFormat("vi-VN").format(model.unitPriceVnd)} ₫`}
                     </dd>
                   </div>
                 </dl>
-                <Link
-                  className="inline-flex rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent"
-                  href={`/catalog/${model.id}`}
-                >
-                  View model detail
-                </Link>
+                <div className="mt-auto flex gap-2">
+                  <Link className="inline-flex min-h-10 flex-1 items-center justify-center rounded-xl border px-2 py-2 text-xs font-bold transition hover:border-primary/50 hover:bg-primary/10 hover:text-primary" href={`/catalog/${model.id}`}>Detail</Link>
+                  {model.isCustom && (
+                    <EditCatalogModelButton model={{
+                    id: model.id, vendorName: model.vendor.name, sku: model.sku,
+                    modelName: model.modelName, category: model.category,
+                    formFactor: model.formFactor, rackUnits: model.rackUnits,
+                    switchingCapacityGbps: model.switchingCapacityGbps,
+                    firewallGbps: model.firewallGbps, managementOs: model.managementOs,
+                    sourceUrl: model.sourceUrl, supportsLacp: model.supportsLacp,
+                    supportsMlag: model.supportsMlag, supportsStacking: model.supportsStacking,
+                    supportsHa: model.supportsHa,
+                    portProfiles: model.portProfiles.map((profile) => ({
+                      portGroup: profile.portGroup, count: profile.count, media: profile.media,
+                      supportedSpeedsMbps: profile.supportedSpeedsMbps,
+                      poeStandard: profile.poeStandard, roleHint: profile.roleHint,
+                      breakoutCapable: profile.breakoutCapable, namePrefix: profile.namePrefix,
+                      startNumber: profile.startNumber, sortOrder: profile.sortOrder,
+                    })),
+                    }}/>
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))}

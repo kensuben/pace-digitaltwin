@@ -37,7 +37,6 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
   const [openMobileGroup, setOpenMobileGroup] = useState<string | null>(null);
   const desktopNavigationRef = useRef<HTMLElement>(null);
 
-  useEffect(() => { setOpenDesktopMenu(null); setMobileOpen(false); }, [pathname]);
   useEffect(() => {
     function closeDesktopMenu(event: PointerEvent) { if (!desktopNavigationRef.current?.contains(event.target as Node)) setOpenDesktopMenu(null); }
     function closeOnEscape(event: KeyboardEvent) { if (event.key === "Escape") { setOpenDesktopMenu(null); setMobileOpen(false); } }
@@ -63,7 +62,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
             const open = openDesktopMenu === group.label;
             return <div className="relative" key={group.label}>
               <button aria-expanded={open} className={`flex h-10 items-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold transition ${active ? "bg-primary/12 text-primary" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`} onClick={() => setOpenDesktopMenu(open ? null : group.label)} type="button">{group.label}<ChevronDown className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} size={15}/></button>
-              {open && <div className="absolute right-0 top-[calc(100%+0.65rem)] z-50 w-[21rem] overflow-hidden rounded-2xl border border-white/10 bg-popover/98 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.5)] backdrop-blur-2xl"><p className="px-3 pb-2 pt-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">{group.label}</p><div className="space-y-1">{group.items.map((item) => <NavigationItem item={item} active={itemMatches(pathname, item.href)} key={item.href}/>)}</div></div>}
+              {open && <div className="absolute right-0 top-[calc(100%+0.65rem)] z-50 w-[21rem] overflow-hidden rounded-2xl border border-white/10 bg-popover/98 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.5)] backdrop-blur-2xl"><p className="px-3 pb-2 pt-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">{group.label}</p><div className="space-y-1">{group.items.map((item) => <NavigationItem item={item} active={itemMatches(pathname, item.href)} key={item.href} onNavigate={() => setOpenDesktopMenu(null)}/>)}</div></div>}
             </div>;
           })}
         </nav>
@@ -76,11 +75,11 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
       <aside aria-label="Điều hướng mobile" className="absolute inset-y-0 right-0 flex w-[min(90vw,25rem)] flex-col border-l border-white/10 bg-background shadow-2xl">
         <div className="flex h-[4.5rem] items-center justify-between border-b px-5"><Brand compact/><button aria-label="Đóng menu điều hướng" className="grid size-10 place-items-center rounded-xl bg-secondary text-muted-foreground hover:text-foreground" onClick={() => setMobileOpen(false)} type="button"><X size={20}/></button></div>
         <nav className="flex-1 overflow-y-auto overscroll-contain p-4">
-          <Link className={`mb-2 flex min-h-12 items-center gap-3 rounded-xl px-3.5 font-semibold ${pathname === "/" ? "bg-primary text-primary-foreground" : "hover:bg-secondary"}`} href="/"><LayoutDashboard size={19}/>Tổng quan</Link>
+          <Link className={`mb-2 flex min-h-12 items-center gap-3 rounded-xl px-3.5 font-semibold ${pathname === "/" ? "bg-primary text-primary-foreground" : "hover:bg-secondary"}`} href="/" onClick={() => setMobileOpen(false)}><LayoutDashboard size={19}/>Tổng quan</Link>
           <div className="space-y-2">{navigation.map((group) => {
             const active = group.items.some((item) => matches(pathname, item.href));
             const open = openMobileGroup === group.label || (openMobileGroup === null && active);
-            return <section className="rounded-2xl border bg-card/55 p-1.5" key={group.label}><button aria-expanded={open} className={`flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-sm font-bold ${active ? "text-primary" : ""}`} onClick={() => setOpenMobileGroup(open ? "" : group.label)} type="button"><span>{group.label}</span><ChevronDown className={`transition-transform ${open ? "rotate-180" : ""}`} size={16}/></button>{open && <div className="space-y-1 pb-1">{group.items.map((item) => <NavigationItem item={item} active={itemMatches(pathname, item.href)} key={item.href}/>)}</div>}</section>;
+            return <section className="rounded-2xl border bg-card/55 p-1.5" key={group.label}><button aria-expanded={open} className={`flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-sm font-bold ${active ? "text-primary" : ""}`} onClick={() => setOpenMobileGroup(open ? "" : group.label)} type="button"><span>{group.label}</span><ChevronDown className={`transition-transform ${open ? "rotate-180" : ""}`} size={16}/></button>{open && <div className="space-y-1 pb-1">{group.items.map((item) => <NavigationItem item={item} active={itemMatches(pathname, item.href)} key={item.href} onNavigate={() => setMobileOpen(false)}/>)}</div>}</section>;
           })}</div>
         </nav>
         <div className="border-t p-5 text-xs leading-5 text-muted-foreground"><strong className="block text-foreground">PACE Smart Campus 181</strong>Network planning workspace</div>
@@ -92,7 +91,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
 
 function Brand({ compact = false }: { compact?: boolean }) { return <Link className="group min-w-0 shrink-0" href="/"><span className="block truncate text-[10px] font-bold uppercase tracking-[0.25em] text-primary sm:text-xs">PACE Smart Campus 181</span><span className={`mt-1 block truncate font-bold tracking-tight ${compact ? "text-sm" : "text-base sm:text-lg"}`}>Network Digital Twin</span></Link>; }
 function DesktopHomeLink({ pathname }: { pathname: string }) { return <Link className={`flex h-10 items-center rounded-xl px-4 text-sm font-bold transition ${pathname === "/" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/15" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`} href="/">Tổng quan</Link>; }
-function NavigationItem({ item, active }: { item: (typeof navigation)[number]["items"][number]; active: boolean }) {
+function NavigationItem({ item, active, onNavigate }: { item: (typeof navigation)[number]["items"][number]; active: boolean; onNavigate?: () => void }) {
   const Icon = item.icon;
-  return <Link className={`group flex min-h-[3.65rem] items-center gap-3 rounded-xl px-3 py-2.5 transition ${active ? "bg-primary/12 text-primary" : "hover:bg-secondary/80"}`} href={item.href}><span className={`grid size-9 shrink-0 place-items-center rounded-lg ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground group-hover:text-primary"}`}><Icon size={17}/></span><span className="min-w-0"><span className="block text-sm font-bold">{item.label}</span><span className="mt-0.5 block text-xs leading-4 text-muted-foreground">{item.description}</span></span></Link>;
+  return <Link className={`group flex min-h-[3.65rem] items-center gap-3 rounded-xl px-3 py-2.5 transition ${active ? "bg-primary/12 text-primary" : "hover:bg-secondary/80"}`} href={item.href} onClick={onNavigate}><span className={`grid size-9 shrink-0 place-items-center rounded-lg ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground group-hover:text-primary"}`}><Icon size={17}/></span><span className="min-w-0"><span className="block text-sm font-bold">{item.label}</span><span className="mt-0.5 block text-xs leading-4 text-muted-foreground">{item.description}</span></span></Link>;
 }

@@ -28,6 +28,8 @@ export interface CatalogRepository {
     data: Prisma.DeviceModelUpdateInput,
   ): Promise<CatalogModelRecord>;
   delete(id: string): Promise<void>;
+  findVendorConflict(code: string, name: string): Promise<{ id: string; code: string; name: string } | null>;
+  createVendor(data: Prisma.VendorCreateInput): Promise<{ id: string; code: string; name: string; website: string | null }>;
 }
 
 export class PrismaCatalogRepository implements CatalogRepository {
@@ -83,5 +85,24 @@ export class PrismaCatalogRepository implements CatalogRepository {
 
   async delete(id: string): Promise<void> {
     await this.prisma.deviceModel.delete({ where: { id } });
+  }
+
+  findVendorConflict(code: string, name: string) {
+    return this.prisma.vendor.findFirst({
+      where: {
+        OR: [
+          { code },
+          { name: { equals: name, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true, code: true, name: true },
+    });
+  }
+
+  createVendor(data: Prisma.VendorCreateInput) {
+    return this.prisma.vendor.create({
+      data,
+      select: { id: true, code: true, name: true, website: true },
+    });
   }
 }
