@@ -43,7 +43,7 @@ export async function placeDeviceInRack(
   if (context.device.floorId !== context.rack.zone.floorId)
     throw new AppError("RACK_FLOOR_MISMATCH", "Device and rack must be on the same floor.", 400);
 
-  const height = context.device.model.rackUnits ?? 1;
+  const height = context.device.rackUnitsOverride ?? context.device.model.rackUnits ?? 1;
   const rackUnitStart = parsed.data.rackUnitStart;
   const end = rackUnitStart + height - 1;
   if (end > context.rack.rackUnits)
@@ -51,7 +51,7 @@ export async function placeDeviceInRack(
 
   const collision = context.occupants.find((occupant) => {
     if (!occupant.rackUnitStart) return false;
-    const occupantEnd = occupant.rackUnitStart + (occupant.model.rackUnits ?? 1) - 1;
+    const occupantEnd = occupant.rackUnitStart + (occupant.rackUnitsOverride ?? occupant.model.rackUnits ?? 1) - 1;
     return rackUnitStart <= occupantEnd && end >= occupant.rackUnitStart;
   });
   if (collision)

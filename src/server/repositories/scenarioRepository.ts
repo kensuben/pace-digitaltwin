@@ -117,7 +117,7 @@ export class PrismaScenarioRepository implements ScenarioRepository {
             displayName: device.displayName, modelId: device.modelId, serialNumber: device.serialNumber,
             managementIp: device.managementIp, status: device.status, buildingId: device.buildingId,
             floorId: device.floorId, zoneId: device.zoneId, rackId: device.rackId,
-            rackUnitStart: device.rackUnitStart, notes: device.notes, graphX: device.graphX, graphY: device.graphY,
+            rackUnitStart: device.rackUnitStart, rackUnitsOverride: device.rackUnitsOverride, notes: device.notes, graphX: device.graphX, graphY: device.graphY,
           },
         });
         for (const port of device.ports) {

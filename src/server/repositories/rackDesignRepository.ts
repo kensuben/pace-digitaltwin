@@ -39,7 +39,7 @@ export interface RackDesignRepository {
       hostname: string;
       displayName: string;
       rackId: string | null;
-      rackUnitStart: number | null;
+      rackUnitStart: number | null; rackUnitsOverride?: number | null;
       virtualMachines: Array<{
         id: string; hostname: string; displayName: string; role: string | null;
         operatingSystem: string | null; vcpuCount: number; memoryMb: number;
@@ -50,9 +50,9 @@ export interface RackDesignRepository {
   }>;
   getPlacementContext(scenarioId: string, deviceId: string, rackId: string | null): Promise<{
     scenario: { isLocked: boolean } | null;
-    device: { id: string; floorId: string; model: { rackUnits: number | null } } | null;
+    device: { id: string; floorId: string; rackUnitsOverride?: number | null; model: { rackUnits: number | null } } | null;
     rack: { id: string; zoneId: string; rackUnits: number; zone: { floorId: string } } | null;
-    occupants: Array<{ id: string; hostname: string; rackUnitStart: number | null; model: { rackUnits: number | null } }>;
+    occupants: Array<{ id: string; hostname: string; rackUnitStart: number | null; rackUnitsOverride?: number | null; model: { rackUnits: number | null } }>;
   }>;
   savePlacement(scenarioId: string, deviceId: string, rackId: string | null, zoneId: string | null, rackUnitStart: number | null): Promise<boolean>;
 }
@@ -73,7 +73,7 @@ export class PrismaRackDesignRepository implements RackDesignRepository {
       this.prisma.deviceInstance.findMany({
         where: { scenarioId, floor: { code: "B2" }, rackId: null },
         select: {
-          id: true, hostname: true, displayName: true, rackId: true, rackUnitStart: true,
+          id: true, hostname: true, displayName: true, rackId: true, rackUnitStart: true, rackUnitsOverride: true,
           virtualMachines: {
             select: { id: true, hostname: true, displayName: true, role: true, operatingSystem: true, vcpuCount: true, memoryMb: true, storageGb: true, ipAddress: true, status: true, notes: true },
             orderBy: { hostname: "asc" },
@@ -97,7 +97,7 @@ export class PrismaRackDesignRepository implements RackDesignRepository {
       this.prisma.scenario.findUnique({ where: { id: scenarioId }, select: { isLocked: true } }),
       this.prisma.deviceInstance.findUnique({
         where: { id_scenarioId: { id: deviceId, scenarioId } },
-        select: { id: true, floorId: true, model: { select: { rackUnits: true } } },
+        select: { id: true, floorId: true, rackUnitsOverride: true, model: { select: { rackUnits: true } } },
       }),
       rackId
         ? this.prisma.rack.findUnique({
@@ -108,7 +108,7 @@ export class PrismaRackDesignRepository implements RackDesignRepository {
       rackId
         ? this.prisma.deviceInstance.findMany({
             where: { scenarioId, rackId, id: { not: deviceId } },
-            select: { id: true, hostname: true, rackUnitStart: true, model: { select: { rackUnits: true } } },
+            select: { id: true, hostname: true, rackUnitStart: true, rackUnitsOverride: true, model: { select: { rackUnits: true } } },
           })
         : Promise.resolve([]),
     ]);

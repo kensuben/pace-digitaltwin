@@ -24,9 +24,9 @@ export default async function RackDesignPage({ params }: { params: Promise<{ sce
 }
 
 function toDeviceDto(device: {
-  id: string; hostname: string; displayName: string; rackId: string | null; rackUnitStart: number | null;
+  id: string; hostname: string; displayName: string; rackId: string | null; rackUnitStart: number | null; rackUnitsOverride?: number | null;
   virtualMachines: Array<{ id: string; hostname: string; displayName: string; role: string | null; operatingSystem: string | null; vcpuCount: number; memoryMb: number; storageGb: number; ipAddress: string | null; status: string; notes: string | null }>;
   model: { category: string; rackUnits: number | null; sku: string; modelName: string; vendor: { name: string } };
 }) {
-  return { id: device.id, hostname: device.hostname, displayName: device.displayName, category: device.model.category, sku: device.model.sku, modelName: device.model.modelName, vendorName: device.model.vendor.name, rackUnits: device.model.rackUnits ?? 1, rackId: device.rackId, rackUnitStart: device.rackUnitStart, virtualMachines: device.virtualMachines };
+  return { id: device.id, hostname: device.hostname, displayName: device.displayName, category: device.model.category, sku: device.model.sku, modelName: device.model.modelName, vendorName: device.model.vendor.name, rackUnits: device.rackUnitsOverride ?? device.model.rackUnits ?? 1, rackId: device.rackId, rackUnitStart: device.rackUnitStart, virtualMachines: device.virtualMachines };
 }

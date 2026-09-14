@@ -54,6 +54,7 @@ export const updateDeviceSchema = z
     zoneId: z.string().min(1).optional().nullable(),
     rackId: z.string().min(1).optional().nullable(),
     rackUnitStart: z.number().int().positive().optional().nullable(),
+    rackUnitsOverride: z.number().int().positive().optional().nullable(),
     unitPriceOverrideVnd: z.number().int().nonnegative().optional().nullable(),
     priceVatRateOverrideBps: z
       .number()

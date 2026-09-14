@@ -12,6 +12,7 @@ export type EditableInventoryDevice = {
   id: string; scenarioId: string; hostname: string; displayName: string;
   assetTag: string | null; serialNumber: string | null; managementIp: string | null;
   status: string; rackUnitStart: number | null; notes: string | null;
+  rackUnitsOverride: number | null; modelRackUnits: number | null;
   unitPriceOverrideVnd: number | null; priceVatRateOverrideBps: number | null;
   pricingSourceOverride: string | null; currentLocationKey: string;
   modelName: string; modelSku: string; modelUnitPriceVnd: number | null;
@@ -45,6 +46,7 @@ export function EditInventoryButton({ device, locations, compact = false }: {
         buildingId: selectedLocation.buildingId, floorId: selectedLocation.floorId,
         zoneId: selectedLocation.zoneId, rackId: selectedLocation.rackId,
         rackUnitStart: selectedLocation.rackId ? optionalNumber("rackUnitStart") : null,
+        rackUnitsOverride: optionalNumber("rackUnitsOverride"),
         unitPriceOverrideVnd: optionalNumber("unitPriceOverrideVnd"),
         priceVatRateOverrideBps: form.get("vatPercent") === "" ? null : Math.round(Number(form.get("vatPercent")) * 100),
         pricingSourceOverride: form.get("pricingSourceOverride") || null,
@@ -73,7 +75,8 @@ export function EditInventoryButton({ device, locations, compact = false }: {
             <Field label="Management IP"><input className="border bg-background px-3" defaultValue={device.managementIp ?? ""} maxLength={64} name="managementIp"/></Field>
             <Field label="Status"><select className="border bg-background px-3" defaultValue={device.status} name="status">{Object.values(DeviceStatus).map((status) => <option key={status}>{status}</option>)}</select></Field>
             <Field className="md:col-span-2" label="Location"><select className="border bg-background px-3" onChange={(event) => setLocationKey(event.target.value)} required value={locationKey}>{locations.map((location) => <option key={location.key} value={location.key}>{location.label}</option>)}</select></Field>
-            <Field label="Rack unit"><input className="border bg-background px-3 disabled:cursor-not-allowed disabled:opacity-50" defaultValue={device.rackUnitStart ?? ""} disabled={!selectedLocation?.rackId} min={1} name="rackUnitStart" placeholder={selectedLocation?.rackId ? "U bắt đầu" : "Chọn location có rack"} type="number"/></Field>
+            <Field label="Vị trí U bắt đầu"><input className="border bg-background px-3 disabled:cursor-not-allowed disabled:opacity-50" defaultValue={device.rackUnitStart ?? ""} disabled={!selectedLocation?.rackId} min={1} name="rackUnitStart" placeholder={selectedLocation?.rackId ? "U bắt đầu" : "Chọn location có rack"} type="number"/></Field>
+            <Field label="Chiều cao thiết bị (U)"><input className="border bg-background px-3" defaultValue={device.rackUnitsOverride ?? ""} min={1} step={1} name="rackUnitsOverride" placeholder={`${device.modelRackUnits ?? 1}U theo model`} type="number"/><span className="font-normal text-muted-foreground">Để trống để dùng {device.modelRackUnits ?? 1}U theo model. Chỉ áp dụng cho thiết bị này.</span></Field>
           </div>
           <fieldset className="mt-5 rounded-xl border p-4"><legend className="px-2 text-sm font-bold">Giá riêng cho thiết bị</legend><p className="mb-4 text-xs text-muted-foreground">Giá model: {device.modelUnitPriceVnd === null ? "Chưa có" : `${device.modelUnitPriceVnd.toLocaleString("vi-VN")} ₫`} · VAT {device.modelVatRateBps / 100}%. Để trống để dùng giá model.</p><div className="grid gap-4 md:grid-cols-3"><Field label="Đơn giá riêng (VND)"><input className="border bg-background px-3" defaultValue={device.unitPriceOverrideVnd ?? ""} min={0} name="unitPriceOverrideVnd" step={1000} type="number"/></Field><Field label="VAT riêng (%)"><input className="border bg-background px-3" defaultValue={device.priceVatRateOverrideBps === null ? "" : device.priceVatRateOverrideBps / 100} max={100} min={0} name="vatPercent" step="0.01" type="number"/></Field><Field label="Nguồn báo giá"><input className="border bg-background px-3" defaultValue={device.pricingSourceOverride ?? ""} maxLength={500} name="pricingSourceOverride"/></Field></div></fieldset>
           <Field className="mt-5" label="Notes"><textarea className="min-h-24 rounded-xl border bg-background p-3" defaultValue={device.notes ?? ""} maxLength={500} name="notes"/></Field>

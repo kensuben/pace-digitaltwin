@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { assertRackFits } from "@/domain/rackHeight";
+import { AppError } from "@/server/errors";
 
 import type { GeneratedPort } from "@/domain/ports/generatePorts";
 import type { Prisma } from "@/generated/prisma/client";
@@ -242,6 +244,23 @@ export class PrismaInventoryRepository implements InventoryRepository {
     });
     if (!before) return null;
     const result = await this.prisma.$transaction(async (tx) => {
+      if (data.rackUnitsOverride !== undefined || data.rackUnitStart !== undefined || data.rackId !== undefined) {
+        const current = await tx.deviceInstance.findUniqueOrThrow({
+          where: { id_scenarioId: { id, scenarioId } }, include: { model: true },
+        });
+        const rackId = data.rackId === null ? null : typeof data.rackId === "string" ? data.rackId : current.rackId;
+        const start = data.rackUnitStart === null ? null : typeof data.rackUnitStart === "number" ? data.rackUnitStart : current.rackUnitStart;
+        const override = data.rackUnitsOverride === null ? null : typeof data.rackUnitsOverride === "number" ? data.rackUnitsOverride : current.rackUnitsOverride;
+        if (rackId && start !== null) {
+          const rack = await tx.rack.findUnique({ where: { id: rackId } });
+          if (!rack) throw new AppError("RACK_NOT_FOUND", "Không tìm thấy rack.", 404);
+          const occupants = await tx.deviceInstance.findMany({
+            where: { scenarioId, rackId, id: { not: id } },
+            select: { hostname: true, rackUnitStart: true, rackUnitsOverride: true, model: { select: { rackUnits: true } } },
+          });
+          assertRackFits(start, override ?? current.model.rackUnits ?? 1, rack.rackUnits, occupants);
+        }
+      }
       if (typeof data.floorId === "string" && data.floorId !== before.floorId)
         await tx.devicePlacement.deleteMany({
           where: { deviceInstanceId: id, scenarioId },

@@ -43,7 +43,7 @@ export function DeviceDetailsPanel({ deviceId, scenarioId, rackLabel, virtualMac
         <Field label="Model" value={device.model.modelName}/><Field label="SKU" value={device.model.sku}/>
         <Field label="Trạng thái" value={device.status}/><Field label="IP quản trị" value={device.managementIp}/>
         <Field label="Asset tag" value={device.assetTag}/><Field label="Serial" value={device.serialNumber}/>
-        <Field label="Vị trí rack" value={rackLabel}/><Field label="Chiều cao" value={`${device.model.rackUnits ?? 1}U`}/>
+        <Field label="Vị trí rack" value={rackLabel}/><Field label="Chiều cao" value={`${device.rackUnitsOverride ?? device.model.rackUnits ?? 1}U`}/>
       </dl>
       <section className="space-y-2 border-t pt-4"><h3 className="font-bold">Cổng & kết nối ({device.ports.length})</h3>
         {device.ports.length === 0 && <p className="text-muted-foreground">Chưa khai báo cổng.</p>}

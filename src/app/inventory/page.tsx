@@ -91,6 +91,7 @@ export default async function InventoryPage({
     displayName: device.displayName, assetTag: device.assetTag,
     serialNumber: device.serialNumber, managementIp: device.managementIp,
     status: device.status, rackUnitStart: device.rackUnitStart, notes: device.notes,
+    rackUnitsOverride: device.rackUnitsOverride, modelRackUnits: device.model.rackUnits,
     unitPriceOverrideVnd: device.unitPriceOverrideVnd,
     priceVatRateOverrideBps: device.priceVatRateOverrideBps,
     pricingSourceOverride: device.pricingSourceOverride,
