@@ -18,6 +18,7 @@ export default async function RackDesignPage({ params }: { params: Promise<{ sce
     id: rack.id, code: rack.code, name: rack.name, rackUnits: rack.rackUnits, devices: rack.devices.map(toDeviceDto),
   })))));
   return <AppShell><div className="space-y-7">
+    <Link href="/racks/manage" className="inline-flex rounded-xl border bg-card px-4 py-2 font-semibold text-primary">Quản lý tủ rack · Thêm / chỉnh sửa →</Link>
     <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">B2 · Rack elevation</p><h1 className="mt-2 text-4xl font-bold">{design.scenario.name}</h1><p className="mt-3 max-w-3xl text-muted-foreground">Lắp thiết bị trực quan lên rack theo đơn vị U. Mọi thay đổi được lưu vào inventory của scenario.</p></div><Link className="rounded-xl border bg-card px-4 py-2 text-sm font-bold hover:border-primary" href={`/topology/${scenarioId}`}>Xem topology B2 →</Link></div>
     <RackDesigner scenarioId={scenarioId} isLocked={design.scenario.isLocked} racks={racks} unplacedDevices={design.unplacedDevices.map(toDeviceDto)}/>
   </div></AppShell>;
