@@ -19,7 +19,7 @@ import { netgearDemoDevices, quoteModels } from "./quote-demo-data";
 
 const connectionString =
   process.env.DATABASE_URL ??
-  "postgresql://pace:pace_dev_password@localhost:5432/pace_digital_twin?schema=public";
+  "postgresql://pace:pace_dev_password@127.0.0.1:55432/pace_digital_twin?schema=public";
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString }),
 });

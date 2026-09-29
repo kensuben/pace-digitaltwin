@@ -33,6 +33,7 @@ Máy tạo M0 hiện có Docker Engine, Compose v2 và Buildx ở cấp user. Us
 cp .env.example .env
 npm ci
 npm run db:generate
+docker compose up -d --wait postgres
 npm run db:deploy
 npm run db:seed
 npm run dev
@@ -43,6 +44,12 @@ Nếu PostgreSQL chạy bằng Docker, có thể chỉ bật database:
 ```bash
 docker compose up -d postgres
 ```
+
+PostgreSQL local của project dùng `127.0.0.1:55432` để tránh đụng cổng `5432`
+của project khác. Các service trong Compose vẫn kết nối `postgres:5432`.
+Với checkout cũ, cập nhật `DATABASE_URL` trong `.env` theo `.env.example`, chạy
+`docker compose up -d --wait postgres`, rồi khởi động lại `npm run dev` và PDF worker
+để tạo kết nối mới. Volume dữ liệu PostgreSQL được giữ nguyên.
 
 Sau đó mở `http://localhost:3000`. `npm run dev` dùng Webpack HMR để đồng bộ
 với production build và tránh lỗi WebSocket của Turbopack trong một số môi

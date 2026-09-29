@@ -23,7 +23,7 @@ export default defineConfig({
     env: {
       DATABASE_URL:
         process.env.DATABASE_URL ??
-        "postgresql://pace:pace_dev_password@127.0.0.1:5432/pace_digital_twin?schema=public",
+        "postgresql://pace:pace_dev_password@127.0.0.1:55432/pace_digital_twin?schema=public",
       DEMO_MODE: process.env.DEMO_MODE ?? "true",
     },
     reuseExistingServer: false,

@@ -51,6 +51,13 @@ This roadmap resolves the dependency order between SOP-SC181-001 network phases 
 - Done: `DESKTOP_LAPTOP` and `PRINTER` planning categories with one-port generic Catalog models and bulk node creation by floor (1–200 nodes per action).
 - Done: HIKVISION camera quotation import includes 20-unit dome and 5-unit bullet alternatives at 1,890,000 VND/unit with 8% VAT pricing metadata; Camera/AP local mapping requires a PoE switch port.
 
+## LAN discovery and topology reconciliation extension
+
+- Planned: [PLAN-SC181-002 — LAN Discovery & Topology Reconciliation](../PLAN-SC181-002_LAN_Discovery_Topology_Reconciliation.md), covering a LAN collector, observed inventory/links, scenario snapshots, identity mapping and matching percentages with evidence coverage.
+- Sequence: ND-0 scope/adapter PoC → ND-1 data/jobs/auth → ND-2 collector → ND-3 reconciliation → ND-4 UI/report → ND-5 pilot; ND-6 adds configuration conformity and more discovery sources.
+- Depends on existing M1/M2/M3/M5 contracts; authenticated collector access and application RBAC are required before a production LAN pilot. Observations remain separate from design data and do not mutate locked Scenarios.
+- Status: planning only; no LAN scan or implementation completed. This extension can proceed independently of the pending GLB visualization work.
+
 ## Dependency rules
 
 - M1 cannot create its migration until ADR-0002 and ADR-0003 are accepted.

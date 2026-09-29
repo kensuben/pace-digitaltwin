@@ -7,6 +7,120 @@ datasource db {
   provider = "postgresql"
 }
 
+enum DiscoveryRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+enum DiscoveryMode {
+  MOCK
+}
+
+model DiscoveryCollector {
+  id        String @id
+  campusId  String
+  name      String
+  mode      DiscoveryMode @default(MOCK)
+  enabled   Boolean @default(true)
+  lastSeenAt DateTime?
+  createdAt DateTime @default(now())
+  campus    Campus @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  scopes    DiscoveryScope[]
+
+  @@unique([id, campusId])
+  @@index([campusId])
+}
+
+// Scopes are immutable: a changed profile is a new scope, referenced by new runs.
+model DiscoveryScope {
+  id            String @id @default(cuid())
+  campusId      String
+  collectorId   String
+  name          String
+  networkDomain String
+  mode          DiscoveryMode @default(MOCK)
+  cidrs         String[]
+  exclusions    String[]
+  createdBy     String
+  createdAt     DateTime @default(now())
+  campus        Campus @relation(fields: [campusId], references: [id], onDelete: Restrict)
+  collector     DiscoveryCollector @relation(fields: [collectorId, campusId], references: [id, campusId], onDelete: Restrict)
+  runs          DiscoveryRun[]
+
+  @@index([campusId, createdAt])
+  @@index([collectorId, campusId])
+}
+
+model DiscoveryRun {
+  id              String @id @default(cuid())
+  scopeId         String
+  scenarioId      String
+  idempotencyKey  String
+  requestHash     String
+  createdBy       String
+  status          DiscoveryRunStatus @default(QUEUED)
+  attempts        Int @default(0)
+  leaseToken      String?
+  leaseExpiresAt  DateTime?
+  deadlineAt      DateTime
+  errorCode       String?
+  resultJson      Json?
+  finalizedHash   String?
+  createdAt       DateTime @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+  scope           DiscoveryScope @relation(fields: [scopeId], references: [id], onDelete: Restrict)
+  scenario        Scenario @relation(fields: [scenarioId], references: [id], onDelete: Restrict)
+  snapshot        DiscoveryDesignSnapshot?
+  batches         DiscoveryBatch[]
+  events          DiscoveryEvent[]
+
+  @@unique([createdBy, idempotencyKey])
+  @@index([scopeId, status, createdAt])
+  @@index([status, leaseExpiresAt, deadlineAt])
+  @@index([scenarioId])
+}
+
+model DiscoveryDesignSnapshot {
+  id          String @id @default(cuid())
+  runId       String @unique
+  contentHash String
+  contentJson Json
+  deviceCount Int
+  linkCount   Int
+  capturedAt  DateTime @default(now())
+  run         DiscoveryRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+}
+
+model DiscoveryBatch {
+  id         String @id @default(cuid())
+  runId      String
+  batchId    String
+  leaseToken String
+  checksum   String
+  payload    Json
+  createdAt  DateTime @default(now())
+  run        DiscoveryRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+
+  @@unique([runId, batchId])
+}
+
+model DiscoveryEvent {
+  id        String @id @default(cuid())
+  runId     String
+  actorId   String
+  action    String
+  detail    Json
+  createdAt DateTime @default(now())
+  run       DiscoveryRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+
+  @@index([runId, createdAt])
+}
+
 enum DeviceCategory {
   FIREWALL
   CORE_SWITCH
@@ -334,6 +448,8 @@ model Campus {
   updatedAt   DateTime          @updatedAt
   buildings   Building[]
   drawings    DrawingDocument[]
+  discoveryCollectors DiscoveryCollector[]
+  discoveryScopes DiscoveryScope[]
 }
 
 model Building {
@@ -517,6 +633,7 @@ model Scenario {
   validationFindings ValidationFinding[]
   costItems          ProjectCostItem[]
   virtualMachines    VirtualMachine[]
+  discoveryRuns      DiscoveryRun[]
 
   @@index([type, isLocked])
 }
