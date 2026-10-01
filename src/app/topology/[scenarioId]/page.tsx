@@ -5,7 +5,7 @@ import { TopologyCanvas } from "@/components/topology/topology-canvas";
 import type { DeviceNodeData } from "@/components/topology/device-node";
 import { AppError } from "@/server/errors";
 import {
-  getTopology,
+  getVisibleTopology,
   toTopologyLinkDto,
 } from "@/server/services/topologyService";
 import {
@@ -22,7 +22,7 @@ export default async function TopologyPage(props: {
   const { scenarioId } = await props.params;
   let topology;
   try {
-    topology = await getTopology(scenarioId);
+    topology = await getVisibleTopology(scenarioId);
   } catch (error) {
     if (error instanceof AppError && error.status === 404) notFound();
     throw error;
@@ -35,7 +35,7 @@ export default async function TopologyPage(props: {
   ]);
   const { models } = options;
   const connectedPorts = new Set(
-    topology.links.flatMap((link) => [link.sourcePortId, link.targetPortId]),
+    topology.connectedPortIds,
   );
   const devices = topology.devices.map((device) => ({
     id: device.id,
@@ -83,6 +83,7 @@ export default async function TopologyPage(props: {
           </p>
         </div>
         <TopologyCanvas
+          key={`${scenarioId}:${devices.map((device) => device.id).join(",")}`}
           devices={devices}
           links={topology.links.map(toTopologyLinkDto)}
           scenario={topology.scenario}

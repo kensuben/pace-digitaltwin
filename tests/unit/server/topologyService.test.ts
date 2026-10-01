@@ -8,6 +8,7 @@ import {
   createPhysicalLink,
   deletePhysicalLink,
   getTopology,
+  getVisibleTopology,
   updateTopologyPositions,
 } from "@/server/services/topologyService";
 
@@ -189,4 +190,17 @@ describe("topologyService", () => {
       expect.objectContaining({ id: "link-1" }),
     );
   });
+});
+
+it.each(["device-a", "device-b"])("hides %s and its links while retaining the complete network model", async (hiddenId) => {
+  const devices = ["device-a", "device-b", "device-c"].map((id) => ({ id, topologyVisible: id !== hiddenId }));
+  const raw = { scenario: { id: "scenario-a", name: "Test", isLocked: false }, devices, links: [link()] };
+  const repo = repository({ getTopology: vi.fn().mockResolvedValue(raw) });
+  const visible = await getVisibleTopology("scenario-a", repo);
+  expect(visible.devices.map((device) => device.id)).not.toContain(hiddenId);
+  expect(visible.links).toEqual([]);
+  expect(visible.connectedPortIds).toEqual(["port-a", "port-b"]);
+  expect(await getTopology("scenario-a", repo)).toEqual(raw);
+  devices.forEach((device) => { device.topologyVisible = true; });
+  expect((await getVisibleTopology("scenario-a", repo)).links).toEqual([link()]);
 });

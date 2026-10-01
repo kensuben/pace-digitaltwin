@@ -17,9 +17,9 @@ export const createDeviceSchema = z.object({
   hostname: z
     .string()
     .trim()
-    .min(2)
-    .max(80)
-    .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/)
+    .min(2, "Hostname phải có ít nhất 2 ký tự.")
+    .max(80, "Hostname không được vượt quá 80 ký tự.")
+    .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, "Hostname phải bắt đầu bằng chữ hoặc số; chỉ dùng chữ không dấu, số, dấu chấm, gạch dưới và gạch ngang (ví dụ: ODF-AMP-1U-24PORTS-01).")
     .transform((value) => value.toUpperCase()),
   displayName: z.string().trim().min(2).max(160),
   assetTag: z.string().trim().max(80).optional().nullable(),
@@ -39,9 +39,9 @@ export const updateDeviceSchema = z
     hostname: z
       .string()
       .trim()
-      .min(2)
-      .max(80)
-      .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/)
+      .min(2, "Hostname phải có ít nhất 2 ký tự.")
+      .max(80, "Hostname không được vượt quá 80 ký tự.")
+      .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, "Hostname phải bắt đầu bằng chữ hoặc số; chỉ dùng chữ không dấu, số, dấu chấm, gạch dưới và gạch ngang (ví dụ: ODF-AMP-1U-24PORTS-01).")
       .transform((value) => value.toUpperCase())
       .optional(),
     displayName: z.string().trim().min(2).max(160).optional(),

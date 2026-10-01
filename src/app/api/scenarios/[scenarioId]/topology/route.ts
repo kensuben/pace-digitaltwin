@@ -1,7 +1,7 @@
 import { AppError } from "@/server/errors";
 import { apiError, apiSuccess } from "@/server/http/apiResponse";
 import {
-  getTopology,
+  getVisibleTopology,
   updateTopologyPositions,
 } from "@/server/services/topologyService";
 
@@ -23,7 +23,7 @@ export async function GET(
 ) {
   try {
     const { scenarioId } = await context.params;
-    return apiSuccess(await getTopology(scenarioId));
+    return apiSuccess(await getVisibleTopology(scenarioId));
   } catch (error) {
     return apiError(error);
   }

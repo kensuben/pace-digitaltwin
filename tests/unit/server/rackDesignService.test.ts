@@ -13,6 +13,7 @@ function repository(overrides: Partial<RackDesignRepository> = {}) {
       rack: { id: "rack-1", zoneId: "zone-b2", rackUnits: 42, zone: { floorId: "floor-b2" } },
       occupants: [],
     }),
+    saveTopologyVisibility: vi.fn().mockResolvedValue(undefined),
     savePlacement: vi.fn().mockResolvedValue(true),
     ...overrides,
   } as RackDesignRepository;
@@ -69,4 +70,27 @@ describe("rackDesignService", () => {
     await placeDeviceInRack("scenario-1", "device-1", { action: "remove" }, repo);
     expect(repo.savePlacement).toHaveBeenCalledWith("scenario-1", "device-1", null, null, null);
   });
+});
+
+it.each([true, false])("saves topology visibility %s without moving the device", async (visible) => {
+  const repo = repository();
+  await expect(placeDeviceInRack("scenario-1", "device-1", { action: "topology-visibility", visible }, repo)).resolves.toEqual({ deviceId: "device-1", topologyVisible: visible });
+  expect(repo.saveTopologyVisibility).toHaveBeenCalledWith("scenario-1", "device-1", visible);
+  expect(repo.savePlacement).not.toHaveBeenCalled();
+});
+
+it.each([
+  [{ scenario: null, device: null }, "SCENARIO_NOT_FOUND"],
+  [{ scenario: { isLocked: true }, device: { id: "device-1" } }, "SCENARIO_LOCKED"],
+  [{ scenario: { isLocked: false }, device: null }, "DEVICE_NOT_FOUND"],
+])("rejects visibility changes outside a mutable scenario", async (context, code) => {
+  const repo = repository({ getPlacementContext: vi.fn().mockResolvedValue(context) });
+  await expect(placeDeviceInRack("scenario-1", "device-1", { action: "topology-visibility", visible: false }, repo)).rejects.toMatchObject({ code });
+  expect(repo.saveTopologyVisibility).not.toHaveBeenCalled();
+});
+
+it("requires a boolean visibility value", async () => {
+  const repo = repository();
+  await expect(placeDeviceInRack("scenario-1", "device-1", { action: "topology-visibility", visible: "false" }, repo)).rejects.toMatchObject({ code: "INVALID_RACK_PLACEMENT" });
+  expect(repo.saveTopologyVisibility).not.toHaveBeenCalled();
 });

@@ -119,6 +119,23 @@ export async function getTopology(
   return topology;
 }
 
+export async function getVisibleTopology(
+  scenarioId: string,
+  repository: TopologyRepository = new PrismaTopologyRepository(),
+) {
+  const topology = await getTopology(scenarioId, repository);
+  const devices = topology.devices.filter((device) => device.topologyVisible);
+  const visibleIds = new Set(devices.map((device) => device.id));
+  return {
+    ...topology,
+    devices,
+    connectedPortIds: [...new Set(topology.links.flatMap((link) => [link.sourcePortId, link.targetPortId]))],
+    links: topology.links.filter((link) =>
+      visibleIds.has(link.sourcePort.deviceInstanceId) && visibleIds.has(link.targetPort.deviceInstanceId),
+    ),
+  };
+}
+
 export async function createPhysicalLink(
   input: unknown,
   actorId = "local-admin",

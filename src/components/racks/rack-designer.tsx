@@ -4,6 +4,8 @@ import {
   Box,
   CheckCircle2,
   Cpu,
+  Eye,
+  EyeOff,
   GripVertical,
   RotateCcw,
   Server,
@@ -23,6 +25,7 @@ type RackDevice = {
   id: string;
   hostname: string;
   displayName: string;
+  topologyVisible: boolean;
   category: string;
   sku: string;
   modelName: string;
@@ -89,6 +92,31 @@ export function RackDesigner({
         ),
       })),
     );
+  }
+
+  async function toggleTopology(device: RackDevice) {
+    if (isLocked || isPending || saving) return;
+    setSaving(true);
+    setNotice(null);
+    const topologyVisible = !device.topologyVisible;
+    try {
+      const response = await fetch(`/api/rack-design/${scenarioId}/devices/${device.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "topology-visibility", visible: topologyVisible }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.errors?.[0]?.message ?? "Không thể lưu hiển thị topology.");
+      const update = (item: RackDevice) => item.id === device.id ? { ...item, topologyVisible } : item;
+      setRacks((items) => items.map((rack) => ({ ...rack, devices: rack.devices.map(update) })));
+      setUnplaced((items) => items.map(update));
+      setNotice({ kind: "ok", text: `${device.hostname} đã ${topologyVisible ? "hiện trên" : "ẩn khỏi"} topology.` });
+      startTransition(() => router.refresh());
+    } catch (error) {
+      setNotice({ kind: "error", text: error instanceof Error ? error.message : "Không thể lưu hiển thị topology." });
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function persist(
@@ -186,6 +214,7 @@ export function RackDesigner({
       </div>
       {notice && (
         <div
+          role={notice.kind === "error" ? "alert" : "status"}
           className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium ${notice.kind === "ok" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700" : "border-destructive/30 bg-destructive/10 text-destructive"}`}
         >
           {notice.kind === "ok" ? (
@@ -280,6 +309,7 @@ export function RackDesigner({
                 rack={rack}
                 selected={selected}
                 disabled={isLocked || isPending || saving}
+                onToggleTopology={(device) => void toggleTopology(device)}
                 onManageVms={setVmServerId}
                 onPlace={placeAt}
                 onSelect={setSelectedId}
@@ -345,6 +375,7 @@ function RackCabinet({
   onPlace,
   onSelect,
   onRemove,
+  onToggleTopology,
 }: {
   rack: RackDto;
   selected: RackDevice | null;
@@ -353,6 +384,7 @@ function RackCabinet({
   onManageVms: (id: string) => void;
   onSelect: (id: string | null) => void;
   onRemove: (device: RackDevice) => void;
+  onToggleTopology: (device: RackDevice) => void;
 }) {
   const unitHeight = 30;
   const occupied = new Set(
@@ -449,6 +481,23 @@ function RackCabinet({
                 <p className="truncate text-[10px] text-slate-400">
                   {device.sku} · {device.rackUnits}U
                 </p>
+              </button>
+              <button
+                type="button"
+                role="switch"
+                aria-label={`Hiển thị ${device.hostname} trên topology`}
+                aria-checked={device.topologyVisible}
+                disabled={disabled}
+                draggable={false}
+                title={device.topologyVisible ? "Đang hiện trên topology · Nhấn để ẩn" : "Đang ẩn khỏi topology · Nhấn để hiện"}
+                className={`shrink-0 rounded p-1 disabled:cursor-not-allowed disabled:opacity-50 ${device.topologyVisible ? "text-cyan-300 hover:bg-cyan-400/15" : "bg-amber-400/15 text-amber-300 hover:bg-amber-400/25"}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleTopology(device);
+                }}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                {device.topologyVisible ? <Eye size={14} /> : <EyeOff size={14} />}
               </button>
               {device.category === "SERVER" && (
                 <button

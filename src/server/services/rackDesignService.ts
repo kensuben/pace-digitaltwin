@@ -6,6 +6,7 @@ import { PrismaRackDesignRepository, type RackDesignRepository } from "@/server/
 const placementSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("place"), rackId: z.string().min(1), rackUnitStart: z.number().int().positive() }),
   z.object({ action: z.literal("remove") }),
+  z.object({ action: z.literal("topology-visibility"), visible: z.boolean() }),
 ]);
 
 export async function getRackRoomDesign(
@@ -33,6 +34,11 @@ export async function placeDeviceInRack(
   if (!context.scenario) throw new AppError("SCENARIO_NOT_FOUND", "Scenario was not found.", 404);
   if (context.scenario.isLocked) throw new AppError("SCENARIO_LOCKED", "Locked scenarios cannot be changed.", 409);
   if (!context.device) throw new AppError("DEVICE_NOT_FOUND", "Device was not found in this scenario.", 404);
+
+  if (parsed.data.action === "topology-visibility") {
+    await repository.saveTopologyVisibility(scenarioId, deviceId, parsed.data.visible);
+    return { deviceId, topologyVisible: parsed.data.visible };
+  }
 
   if (parsed.data.action === "remove") {
     await repository.savePlacement(scenarioId, deviceId, null, null, null);

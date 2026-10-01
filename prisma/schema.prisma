@@ -679,6 +679,7 @@ model DeviceInstance {
   notes         String?
   graphX        Float             @default(0)
   graphY        Float             @default(0)
+  topologyVisible Boolean         @default(true)
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   scenario      Scenario          @relation(fields: [scenarioId], references: [id], onDelete: Cascade)

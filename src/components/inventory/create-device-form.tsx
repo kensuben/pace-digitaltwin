@@ -114,9 +114,17 @@ export function CreateDeviceForm({
         <input
           className="rounded-md border bg-background p-2"
           name="hostname"
+          minLength={2}
+          maxLength={80}
+          pattern={"[A-Za-z0-9][A-Za-z0-9._\\-]*"}
+          title="Dùng chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang; không dùng dấu cách hay dấu ngoặc."
+          aria-describedby="create-device-hostname-help"
           placeholder="ACCESS-T1-01"
           required
         />
+        <span id="create-device-hostname-help" className="text-xs text-muted-foreground">
+          Không dùng dấu cách hoặc dấu ngoặc. Ví dụ: ODF-AMP-1U-24PORTS-01. Tên mô tả nhập ở Display name.
+        </span>
       </label>
       <label className="grid gap-1 text-sm">
         Display name

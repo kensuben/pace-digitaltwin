@@ -38,6 +38,7 @@ export interface RackDesignRepository {
       id: string;
       hostname: string;
       displayName: string;
+      topologyVisible: boolean;
       rackId: string | null;
       rackUnitStart: number | null; rackUnitsOverride?: number | null;
       virtualMachines: Array<{
@@ -54,6 +55,7 @@ export interface RackDesignRepository {
     rack: { id: string; zoneId: string; rackUnits: number; zone: { floorId: string } } | null;
     occupants: Array<{ id: string; hostname: string; rackUnitStart: number | null; rackUnitsOverride?: number | null; model: { rackUnits: number | null } }>;
   }>;
+  saveTopologyVisibility(scenarioId: string, deviceId: string, visible: boolean): Promise<void>;
   savePlacement(scenarioId: string, deviceId: string, rackId: string | null, zoneId: string | null, rackUnitStart: number | null): Promise<boolean>;
 }
 
@@ -73,7 +75,7 @@ export class PrismaRackDesignRepository implements RackDesignRepository {
       this.prisma.deviceInstance.findMany({
         where: { scenarioId, floor: { code: "B2" }, rackId: null },
         select: {
-          id: true, hostname: true, displayName: true, rackId: true, rackUnitStart: true, rackUnitsOverride: true,
+          id: true, hostname: true, displayName: true, topologyVisible: true, rackId: true, rackUnitStart: true, rackUnitsOverride: true,
           virtualMachines: {
             select: { id: true, hostname: true, displayName: true, role: true, operatingSystem: true, vcpuCount: true, memoryMb: true, storageGb: true, ipAddress: true, status: true, notes: true },
             orderBy: { hostname: "asc" },
@@ -113,6 +115,26 @@ export class PrismaRackDesignRepository implements RackDesignRepository {
         : Promise.resolve([]),
     ]);
     return { scenario, device, rack, occupants };
+  }
+
+  async saveTopologyVisibility(scenarioId: string, deviceId: string, visible: boolean) {
+    await this.prisma.$transaction(async (tx) => {
+      const before = await tx.deviceInstance.findUniqueOrThrow({
+        where: { id_scenarioId: { id: deviceId, scenarioId } },
+        select: { topologyVisible: true },
+      });
+      await tx.deviceInstance.update({
+        where: { id_scenarioId: { id: deviceId, scenarioId } },
+        data: { topologyVisible: visible },
+      });
+      await tx.auditLog.create({
+        data: {
+          scenarioId, actorId: "local-admin", action: "UPDATE",
+          entityType: "DeviceInstance", entityId: deviceId,
+          beforeJson: before, afterJson: { topologyVisible: visible },
+        },
+      });
+    });
   }
 
   async savePlacement(scenarioId: string, deviceId: string, rackId: string | null, zoneId: string | null, rackUnitStart: number | null) {
